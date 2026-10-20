@@ -116,10 +116,12 @@ describe("TabSession", () => {
 
   it("leaves the current tenant untouched when token issuance fails", async () => {
     const store = memoryStore("token-a");
+    const onSwitchAbort = vi.fn();
     const session = new TabSession({
       identity: identity(["tenant-a", "tenant-b"], "tenant-a"),
       initialTenant: tenantId("tenant-a"),
       store,
+      onSwitchAbort,
       issueToken: async () => {
         throw new Error("issuer down");
       }
@@ -133,6 +135,7 @@ describe("TabSession", () => {
     expect(session.currentToken()).toBe("token-a");
     expect(store.value).toBe("token-a");
     expect(inFlight.aborted).toBe(false);
+    expect(onSwitchAbort).not.toHaveBeenCalled();
   });
 
   it("rejects a concurrent switch while one is in progress", async () => {
