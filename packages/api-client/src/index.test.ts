@@ -5,6 +5,7 @@ import {
   BearerAuthAttachment,
   MockApiTransport,
   createMockApiClient,
+  registeredAuthAttachments,
   toApiClientError,
   verifiedIdentityFrom,
   type SessionIdentityProvider,
@@ -109,6 +110,17 @@ describe("api-client", () => {
 
     expect(response.status).toBe(202);
     expect(key).toBe("k1");
+  });
+
+  it("every registered AuthAttachment adds only Authorization and no tenant header", () => {
+    expect(registeredAuthAttachments.length).toBeGreaterThan(0);
+    for (const { create } of registeredAuthAttachments) {
+      const headers = create().attach({ "X-Request-Id": "r1" });
+      expect(headers.Authorization).toBeTruthy();
+      for (const name of Object.keys(headers)) {
+        expect(name.toLowerCase()).not.toContain("tenant");
+      }
+    }
   });
 
   it("maps a transport problem onto the stable client error shape", () => {

@@ -1,0 +1,65 @@
+.syn-operation,
+.syn-run {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.syn-operation__header {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.syn-operation__state,
+.syn-run__state {
+  font-weight: 600;
+}
+
+.syn-operation__raw,
+.syn-run__raw {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.syn-operation__outcome {
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+
+.syn-operation__outcome--partial {
+  background: var(--color-danger);
+}
+
+.syn-operation__progress,
+.syn-operation__error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.syn-operation__error {
+  color: var(--color-danger);
+}
+
+.syn-sync {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.syn-sync dt {
+  color: var(--color-muted);
+}
+
+.syn-sync dd {
+  margin: 0;
+  font-weight: 600;
+}

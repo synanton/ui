@@ -1,0 +1,16 @@
+{
+  "name": "@synanton/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc --noEmit -p tsconfig.json" },
+  "dependencies": {
+    "@synanton/api-client": "workspace:*",
+    "@synanton/app-shell": "workspace:*",
+    "@synanton/design-tokens": "workspace:*",
+    "@synanton/domain-components": "workspace:*",
+    "@synanton/ui-primitives": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
