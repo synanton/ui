@@ -25,6 +25,18 @@ export type ApiErrorCode =
   | "OPERATION_FAILED"
   | "INTERNAL_ERROR";
 
+/** Tenant-contract codes (ADR 0007). */
+export type TenantProblemCode =
+  | "TENANT_IN_REQUEST_BODY"
+  | "TENANT_HEADER_NOT_SUPPORTED"
+  | "TENANT_CONTEXT_MISSING"
+  | "TENANT_ACCESS_DENIED"
+  | "TENANT_NOT_AVAILABLE"
+  | "TENANT_SELECTION_REJECTED"
+  | "TENANT_SWITCH_FAILED"
+  | "SWITCH_IN_PROGRESS"
+  | "REQUEST_ABORTED";
+
 export interface ApiResponse<T> {
   status: number;
   data: T;
@@ -33,7 +45,7 @@ export interface ApiResponse<T> {
 
 /** Frozen problem shape; transport failures map onto this. */
 export interface ApiProblem {
-  code: ApiErrorCode | string;
+  code: ApiErrorCode | TenantProblemCode | string;
   message: string;
   retryable: boolean;
   requestId: string;
@@ -250,6 +262,21 @@ function assertNoTenantInBody(body: unknown): void {
   }
 }
 
+/** Symmetric rejection: a tenant header is not a supported selector (ADR 0007). */
+function assertNoTenantHeaders(headers: Record<string, string> | undefined): void {
+  for (const name of Object.keys(headers ?? {})) {
+    if (name.toLowerCase().includes("tenant")) {
+      throw new ApiClientError({
+        code: "TENANT_HEADER_NOT_SUPPORTED",
+        message: "Tenant identity must not be supplied as a request header; it derives from the verified token",
+        retryable: false,
+        requestId: newRequestId(),
+        details: { header: name }
+      });
+    }
+  }
+}
+
 export class ApiClientImpl implements ApiClient {
   constructor(private readonly options: ApiClientOptions) {}
 
@@ -264,6 +291,7 @@ export class ApiClientImpl implements ApiClient {
       });
     }
     assertNoTenantInBody(request.body);
+    assertNoTenantHeaders(request.headers);
     const headers = this.options.auth.attach(request.headers ?? {});
     try {
       return await this.options.transport.send<T>(

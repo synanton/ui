@@ -29,6 +29,8 @@ The model is set-shaped (platform-confirmed, Q1 answered 2026-10-20): `VerifiedI
 
 `selectTenant` is a **client-initiated request** validated server-side against `authorizedTenantIds`; the resulting token is server-issued. The invariant applies to per-request tenant identity, not to the selection event. This is an extension of the rule, not an exception to it.
 
+Q3 answered 2026-10-20: the selected tenant travels only as a claim inside the signed access token; the token carries only the selected tenant, not the full set. See [ADR 0007](0007-tenant-token-claim.md) for the error matrix and the `POST /v1/auth/tenant` selection contract.
+
 Session-bound locking, per-tab tokens, and switching as a session lifecycle event are defined in [ADR 0006](0006-session-bound-tenant-lock.md). **Launch policy is N=1 (settled);** the set-shaped target is latent, and `selectTenant` is a single-option path at launch. Q1 answered set-shaped on 2026-10-20; the set-shaped model is platform-confirmed. Q3 (convention/authority) remains open and gates real-adapter acceptance.
 
 ## Consequences

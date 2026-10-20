@@ -87,6 +87,44 @@ describe("app-shell", () => {
     expect(screen.getByText("tab:tenant-a")).toBeTruthy();
   });
 
+  it("swaps mock and tab providers at the same call sites with the same behavior", async () => {
+    const mock = new MockTenantContextProvider({
+      activeTenantId: tenantId("tenant-a"),
+      authorizedTenantIds: [tenantId("tenant-a")],
+      status: "ready"
+    });
+    let token: string | null = null;
+    const session = new TabSession({
+      identity: verifiedIdentityFrom({ tenantId: tenantId("tenant-a"), principalId: "alice" }),
+      store: { get: () => token, set: (next) => { token = next; } },
+      issueToken: async () => "token-a"
+    });
+    const tab = new TabTenantContextProvider(session);
+
+    function Probe() {
+      const tenant = useTenantContext();
+      return <span>{tenant.getSnapshot().activeTenantId}</span>;
+    }
+
+    const { rerender } = render(
+      <TenantContextProvider value={mock}><Probe /></TenantContextProvider>
+    );
+    expect(screen.getByText("tenant-a")).toBeTruthy();
+
+    rerender(
+      <TenantContextProvider value={tab}><Probe /></TenantContextProvider>
+    );
+    expect(screen.getByText("tenant-a")).toBeTruthy();
+
+    await mock.requestTenantSelection(tenantId("tenant-a"));
+    await tab.requestTenantSelection(tenantId("tenant-a"));
+    expect(mock.getSnapshot().activeTenantId).toBe(tab.getSnapshot().activeTenantId);
+
+    await expect(mock.requestTenantSelection(tenantId("tenant-b"))).rejects.toThrow();
+    await expect(tab.requestTenantSelection(tenantId("tenant-b")))
+      .rejects.toMatchObject({ code: "TENANT_SELECTION_REJECTED" });
+  });
+
   it("mock tenant provider rejects selection outside the authorized set", async () => {
     const provider = new MockTenantContextProvider({
       activeTenantId: tenantId("tenant-a"),

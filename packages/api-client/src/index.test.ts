@@ -84,6 +84,26 @@ describe("api-client", () => {
     expect(transportCalled).toBe(false);
   });
 
+  it("rejects a tenant header before the transport", async () => {
+    let transportCalled = false;
+    const transport = new MockApiTransport().on("GET", "/v1/sources", () => {
+      transportCalled = true;
+      return { status: 200, data: [], requestId: "req-1" };
+    });
+    const client = new ApiClientImpl({ transport, session, auth });
+
+    await expect(client.request({
+      method: "GET",
+      path: "/v1/sources",
+      headers: { "X-Tenant-ID": "tenant-b" }
+    })).rejects.toMatchObject({
+      name: "ApiClientError",
+      code: "TENANT_HEADER_NOT_SUPPORTED",
+      retryable: false
+    });
+    expect(transportCalled).toBe(false);
+  });
+
   it("sends Authorization and never a tenant header", async () => {
     let headers: Record<string, string> | undefined;
     const transport = new MockApiTransport().on("GET", "/v1/sources", (request) => {
