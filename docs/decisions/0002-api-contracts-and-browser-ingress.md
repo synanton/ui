@@ -3,7 +3,7 @@
 - **Status:** Proposed — platform-owner decision required
 - **Date:** 2026-10-20
 - **Owners:** Synanton Platform API/contract owners; Synanton UI maintainers
-- **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md), [Platform decision request #336](https://github.com/synanton/platform/issues/336), [Platform tenant-security issue #335](https://github.com/synanton/platform/issues/335)
+- **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md), [ADR 0005 — Tenant identity is server-derived](0005-tenant-identity-server-derived.md), [Platform decision request #336](https://github.com/synanton/platform/issues/336), [Platform tenant-security issue #335](https://github.com/synanton/platform/issues/335)
 
 ## Context
 
@@ -64,7 +64,7 @@ Before implementation, record a concrete decision covering all seven items above
 - The package may be consumed by `app-shell`, feature modules, CLI tools, tests, and other non-visual consumers without importing presentation code.
 - The UI repository contains generation configuration, not copied canonical `.proto` definitions.
 - CI runs a clean generation/drift check and the platform-approved contract compatibility checks.
-- Authentication and tenant handling follow the verified identity/session contract. The client does not establish authorization and must not rely on a caller-controlled tenant header as the source of tenant authority.
+- Authentication and tenant handling follow the verified identity/session contract. The client does not establish authorization and must not rely on a caller-controlled tenant header as the source of tenant authority. See [ADR 0005](0005-tenant-identity-server-derived.md) for the concrete client-side invariant (no tenant in `ApiRequest`, no tenant header on `AuthAttachment`, body tenant rejected).
 - A shared client error model maps network/transport failures to the frozen Platform API error contract while retaining correlation identifiers and structured details where available.
 - Search, ingestion, and operation clients are not implemented until the applicable API surface and ingress are confirmed.
 

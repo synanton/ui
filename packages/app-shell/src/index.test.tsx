@@ -7,7 +7,10 @@ import {
   CapabilityGate,
   ErrorBoundary,
   MockTenantContextProvider,
-  filterNavigationItems
+  TenantContextProvider,
+  filterNavigationItems,
+  useTenantContext,
+  type TenantContextPort
 } from "./index";
 
 const navItems = [
@@ -33,6 +36,29 @@ describe("app-shell", () => {
     expect(screen.queryByText("Admin")).toBeNull();
     expect(screen.getByText("workbench content")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Search" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("accepts a swapped tenant adapter without changing call sites", () => {
+    const adapter: TenantContextPort = {
+      getSnapshot: () => ({
+        activeTenantId: "tenant-a",
+        authorizedTenantIds: ["tenant-a"],
+        status: "ready"
+      }),
+      requestTenantSelection: async () => {}
+    };
+    function Probe() {
+      const tenant = useTenantContext();
+      return <span>tenant:{tenant.getSnapshot().activeTenantId}</span>;
+    }
+
+    render(
+      <TenantContextProvider value={adapter}>
+        <Probe />
+      </TenantContextProvider>
+    );
+
+    expect(screen.getByText("tenant:tenant-a")).toBeTruthy();
   });
 
   it("mock tenant provider rejects selection outside the authorized set", async () => {
