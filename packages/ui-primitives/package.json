@@ -1,0 +1,13 @@
+{
+  "name": "@synanton/ui-primitives",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.tsx", "./styles.css": "./src/primitives.css" },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.1.1",
+    "@synanton/design-tokens": "workspace:*"
+  },
+  "peerDependencies": { "react": ">=18 <20" },
+  "scripts": { "typecheck": "tsc --noEmit -p ../../tsconfig.json" }
+}

@@ -1,0 +1,20 @@
+@import "@synanton/design-tokens/tokens.css";
+
+.syn-app-shell { background: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); min-height: 100vh; }
+.syn-app-shell__header { align-items: center; border-bottom: 1px solid var(--color-border); display: flex; gap: var(--space-4); justify-content: space-between; min-height: 3.5rem; padding: 0 var(--space-6); }
+.syn-app-shell__brand { color: inherit; font-weight: 700; text-decoration: none; }
+.syn-app-shell__header-actions { align-items: center; display: flex; gap: var(--space-2); }
+.syn-app-shell__body { display: grid; grid-template-columns: 15rem minmax(0, 1fr); min-height: calc(100vh - 3.5rem); }
+.syn-app-shell__navigation { border-right: 1px solid var(--color-border); display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4); }
+.syn-app-shell__nav-link { border-radius: var(--radius-md); color: var(--color-muted); padding: var(--space-2) var(--space-3); text-decoration: none; }
+.syn-app-shell__nav-link:hover, .syn-app-shell__nav-link.is-active { background: var(--color-surface); color: var(--color-foreground); }
+.syn-app-shell__content { min-width: 0; padding: var(--space-6); }
+.syn-loading-state { align-items: center; color: var(--color-muted); display: flex; gap: var(--space-2); }
+.syn-loading-state__indicator { animation: syn-spin 900ms linear infinite; border: 2px solid var(--color-border); border-right-color: var(--color-accent); border-radius: 50%; height: 1rem; width: 1rem; }
+.syn-error-boundary { border: 1px solid var(--color-danger); border-radius: var(--radius-lg); padding: var(--space-4); }
+@keyframes syn-spin { to { transform: rotate(360deg); } }
+@media (max-width: 48rem) {
+  .syn-app-shell__body { grid-template-columns: 1fr; }
+  .syn-app-shell__navigation { border-bottom: 1px solid var(--color-border); border-right: 0; flex-direction: row; overflow-x: auto; }
+  .syn-app-shell__content { padding: var(--space-4); }
+}

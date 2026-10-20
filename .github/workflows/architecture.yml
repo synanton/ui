@@ -1,0 +1,19 @@
+name: Architecture boundaries
+
+on:
+  pull_request:
+  push:
+    branches: [main, "stage1/**"]
+
+jobs:
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Enforce package dependency boundaries
+        run: node scripts/check-package-boundaries.mjs
+      - name: Enforce design-token CSS conformance
+        run: node scripts/check-token-conformance.mjs
