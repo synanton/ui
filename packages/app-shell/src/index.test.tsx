@@ -1,6 +1,7 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { tenantId } from "@synanton/api-client";
 import {
   AppShell,
   AuthBoundary,
@@ -41,8 +42,8 @@ describe("app-shell", () => {
   it("accepts a swapped tenant adapter without changing call sites", () => {
     const adapter: TenantContextPort = {
       getSnapshot: () => ({
-        activeTenantId: "tenant-a",
-        authorizedTenantIds: ["tenant-a"],
+        activeTenantId: tenantId("tenant-a"),
+        authorizedTenantIds: [tenantId("tenant-a")],
         status: "ready"
       }),
       requestTenantSelection: async () => {}
@@ -63,14 +64,14 @@ describe("app-shell", () => {
 
   it("mock tenant provider rejects selection outside the authorized set", async () => {
     const provider = new MockTenantContextProvider({
-      activeTenantId: "tenant-a",
-      authorizedTenantIds: ["tenant-a", "tenant-b"],
+      activeTenantId: tenantId("tenant-a"),
+      authorizedTenantIds: [tenantId("tenant-a"), tenantId("tenant-b")],
       status: "ready"
     });
 
-    await expect(provider.requestTenantSelection("tenant-c")).rejects.toThrow();
-    await provider.requestTenantSelection("tenant-b");
-    expect(provider.getSnapshot().activeTenantId).toBe("tenant-b");
+    await expect(provider.requestTenantSelection(tenantId("tenant-c"))).rejects.toThrow();
+    await provider.requestTenantSelection(tenantId("tenant-b"));
+    expect(provider.getSnapshot().activeTenantId).toBe(tenantId("tenant-b"));
   });
 
   it("capability gate hides children without the capability", () => {

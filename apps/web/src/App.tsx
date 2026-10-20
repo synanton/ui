@@ -1,4 +1,5 @@
 import * as React from "react";
+import { tenantId as brandTenantId } from "@synanton/api-client";
 import {
   AppShell,
   AuthBoundary,
@@ -25,11 +26,14 @@ export function App({ initialPath = "/ingestion", tenantId = "demo" }: AppProps)
   const path = initialPath;
   const platform = React.useMemo(() => createMockPlatform(tenantId), [tenantId]);
   const tenant = React.useMemo(
-    () => new MockTenantContextProvider({
-      activeTenantId: tenantId,
-      authorizedTenantIds: [tenantId],
-      status: "ready"
-    }),
+    () => {
+      const locked = brandTenantId(tenantId);
+      return new MockTenantContextProvider({
+        activeTenantId: locked,
+        authorizedTenantIds: [locked],
+        status: "ready"
+      });
+    },
     [tenantId]
   );
 

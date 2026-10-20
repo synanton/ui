@@ -6,13 +6,14 @@ import {
   MockApiTransport,
   createMockApiClient,
   registeredAuthAttachments,
+  tenantId,
   toApiClientError,
   verifiedIdentityFrom,
   type SessionIdentityProvider,
   type VerifiedIdentity
 } from "./index";
 
-const identity = verifiedIdentityFrom({ tenantId: "tenant-a", principalId: "alice" });
+const identity = verifiedIdentityFrom({ tenantId: tenantId("tenant-a"), principalId: "alice" });
 const session: SessionIdentityProvider = { current: () => identity };
 const auth = new BearerAuthAttachment(() => "token-1");
 
@@ -34,8 +35,11 @@ describe("api-client", () => {
   });
 
   it("rejects an unverified identity input at the auth boundary", () => {
-    expect(() => verifiedIdentityFrom({ tenantId: "  ", principalId: "alice" }))
-      .toThrow(ApiClientError);
+    expect(() => tenantId("  ")).toThrow(ApiClientError);
+    expect(() => verifiedIdentityFrom({
+      tenantId: tenantId("tenant-a"),
+      principalId: "  "
+    })).toThrow(ApiClientError);
   });
 
   it("derives tenant scope only from the verified identity", async () => {

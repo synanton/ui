@@ -69,20 +69,40 @@ export function newRequestId(): string {
 
 const verifiedIdentityBrand: unique symbol = Symbol("synanton.verifiedIdentity");
 
+declare const tenantIdBrand: unique symbol;
+
+/**
+ * Server-validated tenant identifier. Branded so a raw string cannot flow into
+ * a verified identity/context without passing through {@link tenantId}.
+ */
+export type TenantId = string & { readonly [tenantIdBrand]: true };
+
+export function tenantId(value: string): TenantId {
+  if (!value || !value.trim()) {
+    throw new ApiClientError({
+      code: "AUTHENTICATION_REQUIRED",
+      message: "Tenant id is required",
+      retryable: false,
+      requestId: newRequestId()
+    });
+  }
+  return value as TenantId;
+}
+
 /**
  * Identity produced only by the auth/session boundary. The brand prevents a
  * plain `{ tenantId, principalId }` object from being passed where a verified
  * identity is required; use {@link verifiedIdentityFrom} at that boundary.
  */
 export interface VerifiedIdentity {
-  readonly tenantId: string;
+  readonly tenantId: TenantId;
   readonly principalId: string;
   readonly correlationId?: string;
   readonly [verifiedIdentityBrand]: true;
 }
 
 export interface IdentityInput {
-  tenantId: string;
+  tenantId: TenantId;
   principalId: string;
   correlationId?: string;
 }

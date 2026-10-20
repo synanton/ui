@@ -1,6 +1,7 @@
 import {
   BearerAuthAttachment,
   createMockApiClient,
+  tenantId as brandTenantId,
   verifiedIdentityFrom,
   type ApiClient,
   type SessionIdentityProvider
@@ -40,7 +41,7 @@ const searchFixtures: SearchFixture[] = [
 ];
 
 export function createMockPlatform(tenantId = "demo"): MockPlatform {
-  const identity = verifiedIdentityFrom({ tenantId, principalId: "alice" });
+  const identity = verifiedIdentityFrom({ tenantId: brandTenantId(tenantId), principalId: "alice" });
   const session: SessionIdentityProvider = { current: () => identity };
   const { client, transport } = createMockApiClient(
     session,

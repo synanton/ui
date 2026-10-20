@@ -67,6 +67,9 @@ importers:
 
   packages/app-shell:
     dependencies:
+      '@synanton/api-client':
+        specifier: workspace:*
+        version: link:../api-client
       '@synanton/design-tokens':
         specifier: workspace:*
         version: link:../design-tokens
