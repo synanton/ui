@@ -27,10 +27,12 @@ The following is the target, not a claim about the current repository contents:
 ```text
 synanton/ui
 ├── apps/
-│   ├── ingestion/          # ingestion workflows
-│   ├── search/             # search and retrieval evaluation
-│   ├── tenant/             # tenant administration
-│   └── admin/              # platform / Syntology administration
+│   └── web/                # one web workbench and deployment boundary
+│       └── features/
+│           ├── ingestion/
+│           ├── search/     # search and retrieval evaluation
+│           ├── tenants/
+│           └── administration/
 ├── packages/
 │   ├── design-tokens/      # semantic tokens, themes, spacing, typography, motion
 │   ├── ui-primitives/      # accessible low-level primitives (Radix-based)
@@ -49,7 +51,7 @@ synanton/ui
 └── package.json
 ```
 
-The initial four apps are logical application entry points in one monorepo. They may share deployment infrastructure; repository separation or independently deployed frontends are not prerequisites. Do not create a mobile app in this RFC; revisit the existing Flutter direction separately when the web monorepo is established.
+The initial product shape is **one `apps/web` workbench with feature modules**, not four independently deployed frontends. This matches the Knowledge Workbench framing and avoids introducing deployment boundaries without demonstrated release, audience, or operational needs. A feature may be promoted to `apps/<capability>` later if independent deployment becomes necessary. Do not create a mobile app in this RFC; revisit the existing Flutter direction separately when the web monorepo is established.
 
 ## 4. One schema: three enforceable layers
 
@@ -95,7 +97,7 @@ app-shell
 apps/*
 ```
 
-`api-client` is a shared leaf/boundary package consumed by app-shell and feature apps; it must not depend on UI components. `config` is tooling-only and must not introduce runtime dependencies.
+`api-client` is a shared **leaf contract-boundary package** consumed by `app-shell` and feature modules. It may depend only on generated contract types and minimal transport/runtime utilities; it must not depend on `design-tokens`, `ui-primitives`, `ui-components`, `domain-components`, `app-shell`, or any app. Enforce this as a dependency-graph rule in lint/CI, not as a convention. This keeps it usable by CLI tools, backend tooling, and tests without presentation dependencies. `config` is tooling-only and must not introduce runtime dependencies.
 
 Additional rules:
 
@@ -134,7 +136,9 @@ Use a strangler migration, not a big-bang rewrite.
 
 - Inventory each current and planned app: repository/path, framework/build tooling, component library, auth/session handling, tenant context, API access, tests, and deployment.
 - Record actual locations of ingestion, search, tenant, and admin UI. The current main-branch view previously inspected confirmed `platform/ui/syntology-admin` and `platform/ui/shared-ui`; it did not establish four separate top-level app directories.
-- Resolve canonical proto source, generation workflow, API ingress, and auth/session assumptions with platform owners.
+- Record the verified [UI surface inventory](../architecture/ui-inventory.md); distinguish implemented routes from proposed features and missing surfaces.
+- Resolve canonical proto source, generation workflow, API ingress, and auth/session assumptions with platform owners through [ADR 0002](0002-api-contracts-and-browser-ingress.md).
+- Record the web framework decision in ADR 0003 before migrating screens; this gates screen migration, not framework-agnostic shared packages.
 
 ### Stage 1 — establish the substrate
 
@@ -142,7 +146,8 @@ Use a strangler migration, not a big-bang rewrite.
 - Implement semantic design tokens and the shared app shell.
 - Define tenant/session/capability context and cache-isolation rules.
 - Establish the generated API client workflow once the contract and ingress decisions are confirmed.
-- Add dependency-boundary linting and CI before shared packages spread.
+- Add dependency-boundary linting and CI before shared packages spread, including an explicit rule that `api-client` has no dependency on visual or application packages.
+- Once Stage 1 is complete, freeze `platform/ui` for new cross-cutting work (navigation, tenant/session handling, API clients, shared components); keep it as a migration source until retirement criteria are met.
 - Replace placeholder package scripts with meaningful build, lint, type-check, and test tasks.
 
 ### Stage 2 — prove one vertical slice
@@ -198,7 +203,7 @@ Create `docs/ui-standard.md` before broad adoption. It must define:
 2. What is the supported browser ingress: gRPC-Web, an HTTP/JSON gateway, or another explicitly documented Platform API interface?
 3. Where should generated TypeScript artifacts live: generated at build time only, or published/committed through a controlled pipeline?
 4. What existing authentication/session mechanism should the shared shell consume, and how is tenant context validated by the Platform API?
-5. Are ingestion, search, tenant, and admin all intended to be separately deployable apps, or are they app entry points deployed as one workbench initially?
+5. Which web framework will `apps/web` use? Record the decision in ADR 0003 before screen migration.
 6. What is the migration order after the first ingestion/search vertical slice?
 
 ## 13. Decision requested
