@@ -14,10 +14,15 @@ The target model is set-shaped (ADR 0005): an identity carries `authorizedTenant
 
 1. **Per-tab, tenant-bound tokens in `sessionStorage`.** Each tab holds its own token; no shared cookie and no `localStorage` tenant state.
 2. **The tenant is locked for the session.** Switching tenant is a session lifecycle event: select from `authorizedTenantIds`, re-issue the token, revoke/retire the old one. There is no in-place mutation of an active token's scope.
-3. **`selectTenant` fails closed.** A selection outside `authorizedTenantIds` is rejected (ADR 0005); the current lock remains.
-4. **Duplicate-tab detection via `BroadcastChannel`.** Tabs coordinate lock/switch events; a second tab does not silently inherit or overwrite another tab's tenant.
-5. **Background activity uses the tab's own token/tenant context**, never a shared auth singleton.
-6. **Client cache keys are prefixed by the locked tenant** and invalidated on switch. Server-side cache keying is tracked in the companion platform issue.
+3. **In-flight requests during a switch are aborted and re-issued** under the new token. There is no grace window in the initial design; a stale-token response is never accepted.
+4. **`selectTenant` fails closed.** A selection outside `authorizedTenantIds` is rejected (ADR 0005); the current lock remains.
+5. **Duplicate-tab detection via `BroadcastChannel`.** Tabs coordinate lock/switch events; a second tab does not silently inherit or overwrite another tab's tenant.
+6. **Background activity is in-tab only.** The initial design has no ServiceWorker or Web Worker outside the tab lifecycle; if one is added, it must obtain the tab's token through an explicit, same-tenant channel.
+7. **Client cache keys are prefixed by the locked tenant** and invalidated on switch. Server-side cache keying is tracked in the companion platform issue (#339).
+
+## Control hierarchy
+
+The token lock makes the tenant **unambiguous** for a tab. Data-layer enforcement (RLS or a scoped repository, platform #339) makes the token **meaningful**. Cache keying and tab isolation are **defense-in-depth**. Client-side controls are not the isolation guarantee and do not substitute for #339; A-post can be built without #339, but cannot be declared complete without it.
 
 ## Launch policy
 
@@ -26,6 +31,6 @@ The model is universal. The launch policy may be single-membership (N=1) with th
 ## Consequences
 
 - No cross-tab tenant bleed; a switch cannot leave a stale token active.
-- A-post implements the adapter against this model; the swap test proves call sites do not move.
-- Cross-tenant cache isolation and data-layer enforcement require a real backend; the client key prefix is only the UI half.
+- A-post implements the adapter against this model, including `TabSession`, `BroadcastChannel`, and a **multi-tab simulation test** (two tabs, different tenant tokens, no cross-tenant leak). The swap test proves call sites do not move.
+- Cross-tenant cache isolation and data-layer enforcement require a real backend (platform #339); the client key prefix is only the UI half. A-post construction is gated by #335; A-post **integration-time acceptance** is gated by #339.
 - If the model changes, this ADR is amended before A-post implementation, not during it.
