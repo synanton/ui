@@ -67,7 +67,7 @@ Options, in order:
 1. **Add `page_start`/`page_end` (and optionally `section_path`) to the public search hit and/or provenance resource.** Additive, backed by existing canonical columns; requires the search-contract owner to accept the extension.
 2. **Use the legacy `POST /search` for page-level acceptance in the interim**, while the UI targets `/v1/search` for document/provenance and does not display page numbers until option 1 lands.
 
-The trace records this as an open contract item; it must not be silently "solved" in the UI by reading a non-public field.
+The trace records this as an open contract item; it must not be silently "solved" in the UI by reading a non-public field. Tracked as [platform #338](https://github.com/synanton/platform/issues/338).
 
 ## Stage 2 acceptance test
 
