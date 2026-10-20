@@ -14,13 +14,11 @@
   align-items: center;
 }
 
-.syn-operation__state,
-.syn-run__state {
+.syn-state {
   font-weight: 600;
 }
 
-.syn-operation__raw,
-.syn-run__raw {
+.syn-state__raw {
   font-size: var(--font-size-sm);
   color: var(--color-muted);
 }
