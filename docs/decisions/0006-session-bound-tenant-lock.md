@@ -24,9 +24,23 @@ The target model is set-shaped (ADR 0005): an identity carries `authorizedTenant
 
 The token lock makes the tenant **unambiguous** for a tab. Data-layer enforcement (RLS or a scoped repository, platform #339) makes the token **meaningful**. Cache keying and tab isolation are **defense-in-depth**. Client-side controls are not the isolation guarantee and do not substitute for #339; A-post can be built without #339, but cannot be declared complete without it.
 
-## Launch policy
+## Launch policy (settled: N=1)
 
-The model is universal. The launch policy may be single-membership (N=1) with the switcher deferred; if Platform answers single-tenant, the switcher UI is not built, but the per-tab lock still applies. If Platform answers multi-tenant, the switcher becomes a product feature on top of this model, not a rework.
+The model is universal; the launch policy is **single-membership (N=1)**, settled on the UI/product side (Q2). The switcher is hidden, the sole membership auto-selects, and `selectTenant` is a single-option path. The per-tab machinery is built but dormant: all tabs share the same tenant, and no user has a second tenant to leak into.
+
+If membership later relaxes to N>1, the switcher becomes a product feature on top of this model, not a rework.
+
+### Accepted risk (bounded by N=1)
+
+The tenant-bound access token is stored in `sessionStorage`, which is JavaScript-readable. At N=1, a compromised token reaches exactly one tenant — the same exposure as any single-tenant app with a stolen session.
+
+**Revisit trigger:** when the membership policy relaxes to N>1, migrate to an access token held in memory plus an HttpOnly refresh token (optionally behind a BFF). Do not relax the policy without scheduling that migration.
+
+### Dormant constraint (IdP multi-context)
+
+Per-tab tenant contexts require the identity provider to support multiple simultaneous tenant contexts for one user. This is **not exercised at N=1** and is not a prerequisite for A-post.
+
+Verify it with the platform/IdP owner before policy relaxation. Platform-side token issuance and the IdP constraint are tracked with [#336](https://github.com/synanton/platform/issues/336) (see ADR 0002).
 
 ## Consequences
 

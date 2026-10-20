@@ -23,10 +23,20 @@ function sourceFiles(directory: string): string[] {
   return files;
 }
 
+/** Ignore comment-only lines so the guard's own documentation cannot trip it. */
+function stripCommentLines(source: string): string {
+  return source
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join("\n");
+}
+
 describe("TenantId brand", () => {
-  // The brand is only as strong as its cast boundary. Every cast must live in
-  // the api-client factory (`tenantId(...)`); a cast anywhere else (including a
-  // test that could become precedent) fails this check.
+  // The brand is only as strong as its cast boundary. Named casts (`as TenantId`,
+  // `as unknown as TenantId`) must live in the api-client factory (`tenantId(...)`);
+  // one anywhere else (including a test that could become precedent) fails this
+  // check. An `as any` followed by an implicit assignment is NOT detected; add a
+  // boundary-scoped ESLint `no-explicit-any` rule if that becomes a pattern.
   it("casts to TenantId only inside the boundary factory", () => {
     const violations: string[] = [];
     for (const root of scanRoots) {
@@ -40,7 +50,7 @@ describe("TenantId brand", () => {
         if (file === factoryFile) {
           continue;
         }
-        const source = readFileSync(file, "utf8");
+        const source = stripCommentLines(readFileSync(file, "utf8"));
         if (/\bas\s+(?:unknown\s+as\s+)?TenantId\b/.test(source)) {
           violations.push(relative(workspaceRoot, file));
         }
