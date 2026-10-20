@@ -37,9 +37,9 @@ describe("api-client", () => {
       .toThrow(ApiClientError);
   });
 
-  it("derives tenant scope only from the verified identity, never from the request body", async () => {
+  it("derives tenant scope only from the verified identity", async () => {
     let seenIdentity: VerifiedIdentity | undefined;
-    let seenRequest: { idempotencyKey?: string; headers?: Record<string, string> } | undefined;
+    let seenRequest: { idempotencyKey?: string } | undefined;
     const transport = new MockApiTransport().on("POST", "/v1/ingestion-runs", (request, verified) => {
       seenRequest = request;
       seenIdentity = verified;
@@ -50,15 +50,47 @@ describe("api-client", () => {
     const response = await client.request({
       method: "POST",
       path: "/v1/ingestion-runs",
-      body: { source_id: "s", tenant_id: "tenant-b" },
+      body: { source_id: "s" },
       idempotencyKey: "k1"
     });
 
     expect(response).toEqual({ status: 202, data: { run_id: "r1" }, requestId: "req-1" });
     expect(seenIdentity?.tenantId).toBe("tenant-a");
     expect(seenRequest?.idempotencyKey).toBe("k1");
-    expect(seenRequest?.headers?.Authorization).toBe("Bearer token-1");
-    expect(seenRequest?.headers?.["X-Tenant-ID"]).toBeUndefined();
+  });
+
+  it("rejects a tenant in the request body before the transport", async () => {
+    let transportCalled = false;
+    const transport = new MockApiTransport().on("POST", "/v1/ingestion-runs", () => {
+      transportCalled = true;
+      return { status: 202, data: {}, requestId: "req-1" };
+    });
+    const client = new ApiClientImpl({ transport, session, auth });
+
+    await expect(client.request({
+      method: "POST",
+      path: "/v1/ingestion-runs",
+      body: { source_id: "s", tenant_id: "tenant-b" }
+    })).rejects.toMatchObject({
+      name: "ApiClientError",
+      code: "TENANT_IN_REQUEST_BODY",
+      retryable: false
+    });
+    expect(transportCalled).toBe(false);
+  });
+
+  it("sends Authorization and never a tenant header", async () => {
+    let headers: Record<string, string> | undefined;
+    const transport = new MockApiTransport().on("GET", "/v1/sources", (request) => {
+      headers = request.headers;
+      return { status: 200, data: [], requestId: "req-1" };
+    });
+    const client = new ApiClientImpl({ transport, session, auth });
+
+    await client.request({ method: "GET", path: "/v1/sources" });
+
+    expect(headers?.Authorization).toBe("Bearer token-1");
+    expect(headers?.["X-Tenant-ID"]).toBeUndefined();
   });
 
   it("mock transport routes requests and preserves idempotency keys", async () => {

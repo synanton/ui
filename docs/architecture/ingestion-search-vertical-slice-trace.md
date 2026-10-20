@@ -105,8 +105,8 @@ Node1/cluster recovery is an **integration-time** dependency, not a Stage 2 desi
 
 ### Stage 1 gaps (recorded, not blockers)
 
-- `design-tokens` has JSON/CSS conformance checks only; there are no token-level tests for light/dark resolution, contrast, or spacing-scale values. Accepted for Stage 1; revisit before screens are built.
-- `api-client` ships the shape and `MockApiTransport` only; the real generated client remains blocked by #336.
+- `design-tokens` now covers spacing-scale monotonicity and light text-contrast (PR #3). The light/dark resolution test is pending a dark palette; **dark mode is not a Stage 2 criterion A blocker** — the test lands before the first dark-mode screen.
+- `api-client` ships the verified-identity envelope and `MockApiTransport`; the real generated client remains blocked by #336.
 
 
 ## Out of scope

@@ -167,6 +167,30 @@ export function toApiClientError(error: unknown): ApiClientError {
   });
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/** A caller may not ask the client to scope a request to a tenant via the body. */
+function assertNoTenantInBody(body: unknown): void {
+  if (!isPlainObject(body)) {
+    return;
+  }
+  if ("tenant_id" in body || "tenant" in body) {
+    throw new ApiClientError({
+      code: "TENANT_IN_REQUEST_BODY",
+      message: "Tenant scope must not be supplied in the request body; it derives from the verified identity",
+      retryable: false,
+      requestId: newRequestId(),
+      details: { field: "tenant_id" }
+    });
+  }
+}
+
 export class ApiClientImpl implements ApiClient {
   constructor(private readonly options: ApiClientOptions) {}
 
@@ -180,6 +204,7 @@ export class ApiClientImpl implements ApiClient {
         requestId: newRequestId()
       });
     }
+    assertNoTenantInBody(request.body);
     const headers = this.options.auth.attach(request.headers ?? {});
     try {
       return await this.options.transport.send<T>({ ...request, headers }, identity);

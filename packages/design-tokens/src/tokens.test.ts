@@ -55,7 +55,8 @@ describe("design tokens", () => {
     }
   });
 
-  // The substrate is light-only today. This becomes a real test once a dark
-  // palette exists; trigger: before Stage 2 criterion A begins (UI issue #1).
+  // Light-only is not a Stage 2 blocker. This test lands before the first
+  // dark-mode screen; adding a dark palette is a prerequisite for that screen,
+  // not for Stage 2 criterion A. See UI issue #1.
   it.todo("resolves light and dark palettes with the same semantic keys");
 });

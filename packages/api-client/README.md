@@ -13,8 +13,9 @@ satisfy and a mock transport:
   boundary — never browser storage or a client-supplied tenant header),
 - required auth attachment boundary (`AuthAttachment`;
   `BearerAuthAttachment` adds only `Authorization`),
-- envelope-level rejection when the session has no verified identity (before the
-  transport is called),
+- envelope-level rejection when the session has no verified identity, or when
+  the request body carries `tenant_id`/`tenant` (before the transport is
+  called),
 - stable error mapping (`ApiClientError` / `ApiProblem`),
 - correlation/provenance (`requestId`, `correlationId`),
 - an in-memory `MockApiTransport` for shell tests.
