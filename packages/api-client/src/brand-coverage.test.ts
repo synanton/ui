@@ -24,9 +24,11 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("TenantId brand", () => {
-  // The brand is only as strong as its cast boundary. Every cast must live in
-  // the api-client factory (`tenantId(...)`); a cast anywhere else (including a
-  // test that could become precedent) fails this check.
+  // The brand is only as strong as its cast boundary. Named casts (`as TenantId`,
+  // `as unknown as TenantId`) must live in the api-client factory (`tenantId(...)`);
+  // one anywhere else (including a test that could become precedent) fails this
+  // check. An `as any` followed by an implicit assignment is NOT detected; add a
+  // boundary-scoped ESLint `no-explicit-any` rule if that becomes a pattern.
   it("casts to TenantId only inside the boundary factory", () => {
     const violations: string[] = [];
     for (const root of scanRoots) {
