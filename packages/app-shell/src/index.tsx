@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { TenantId } from "@synanton/api-client";
 import "@synanton/design-tokens/tokens.css";
 import "@synanton/ui-primitives/styles.css";
 import "./shell.css";
@@ -73,14 +74,14 @@ export function CapabilityGate({
 }
 
 export interface TenantContextSnapshot {
-  activeTenantId: string | null;
-  authorizedTenantIds: readonly string[];
+  activeTenantId: TenantId | null;
+  authorizedTenantIds: readonly TenantId[];
   status: "unavailable" | "loading" | "ready";
 }
 
 export interface TenantContextPort {
   getSnapshot(): TenantContextSnapshot;
-  requestTenantSelection(tenantId: string): Promise<void>;
+  requestTenantSelection(tenantId: TenantId): Promise<void>;
 }
 
 const TenantContext = React.createContext<TenantContextPort | null>(null);
@@ -93,7 +94,7 @@ export function TenantContextProvider({ value, children }: { value: TenantContex
 export class MockTenantContextProvider implements TenantContextPort {
   constructor(private snapshot: TenantContextSnapshot) {}
   getSnapshot() { return this.snapshot; }
-  async requestTenantSelection(tenantId: string) {
+  async requestTenantSelection(tenantId: TenantId) {
     if (!this.snapshot.authorizedTenantIds.includes(tenantId)) {
       throw new Error("Mock tenant selection is outside the authorized tenant set");
     }

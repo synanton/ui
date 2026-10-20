@@ -3,7 +3,7 @@
 - **Status:** Proposed — platform-owner decision required
 - **Date:** 2026-10-20
 - **Owners:** Synanton Platform API/contract owners; Synanton UI maintainers
-- **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md), [ADR 0005 — Tenant identity is server-derived](0005-tenant-identity-server-derived.md), [Platform decision request #336](https://github.com/synanton/platform/issues/336), [Platform tenant-security issue #335](https://github.com/synanton/platform/issues/335)
+- **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md), [ADR 0005 — Tenant identity is server-derived](0005-tenant-identity-server-derived.md), [ADR 0006 — Session-bound tenant lock and per-tab token model](0006-session-bound-tenant-lock.md), [Platform decision request #336](https://github.com/synanton/platform/issues/336), [Platform tenant-security issue #335](https://github.com/synanton/platform/issues/335)
 
 ## Context
 
