@@ -42,6 +42,16 @@ Per-tab tenant contexts require the identity provider to support multiple simult
 
 Verify it with the platform/IdP owner before policy relaxation. Platform-side token issuance and the IdP constraint are tracked with [#336](https://github.com/synanton/platform/issues/336) (see ADR 0002).
 
+## If the platform issues only a browser-wide cookie
+
+The tenant-bound `sessionStorage` token assumes the platform can mint a per-tenant token. If it can only issue a browser-wide session cookie, cookies are shared per domain and per-tab tenant isolation is not implementable with cookies alone. The pre-chosen branches, in preference order:
+
+1. **Tab-ID discriminator (Druva):** the cookie carries the identity session; a per-tab `X-Tab-ID` header selects the tenant context the server binds to that tab. Isolation is server-side and validated against `authorizedTenantIds`.
+2. **BFF (Clerk):** a backend-for-frontend holds the cookie session and issues short-lived tenant-bound tokens to the SPA; the SPA keeps per-tab tokens in memory.
+3. **Scalar-per-browser-session:** one tenant per browser at a time. This reverts to the model ADR 0006 was designed to avoid and makes the accepted-risk analysis moot; it is the last resort.
+
+This is a pre-recorded decision set, not an implementation. A cookie-only answer selects one branch rather than re-opening the design.
+
 ## Consequences
 
 - No cross-tab tenant bleed; a switch cannot leave a stale token active.
