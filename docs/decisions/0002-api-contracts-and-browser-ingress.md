@@ -3,7 +3,7 @@
 - **Status:** Proposed — platform-owner decision required
 - **Date:** 2026-10-20
 - **Owners:** Synanton Platform API/contract owners; Synanton UI maintainers
-- **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md)
+- **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md), [Platform decision request #336](https://github.com/synanton/platform/issues/336), [Platform tenant-security issue #335](https://github.com/synanton/platform/issues/335)
 
 ## Context
 
@@ -17,6 +17,14 @@ The repository evidence is not yet sufficient to select a single browser contrac
 - The current Syntology admin SPA uses an Axios client against `/api/v1/ontology`. That does not establish a general ingress contract for search and ingestion.
 - The platform README records a tenant-propagation fix: tenant scope must come from verified identity; hops must not trust or forward a client-supplied tenant header, and missing context fails closed. The new client must follow the accepted platform auth/tenant contract, not preserve legacy header behavior.
 - The platform has frozen API contract artifacts for identity context, search, error model, Operation model, and OAuth auth spec (see platform issue/README context); this ADR must reference those canonical artifacts rather than redefining them.
+
+## Platform-owner decision package
+
+The concrete decision request is tracked in [synanton/platform#336](https://github.com/synanton/platform/issues/336). It asks whether the ingestion/search demo already uses a stable, supported browser-facing REST/HTTP surface. If yes, choose the option that matches that ingress and generate from the authoritative contract; if no, record ADR 0002 as a Stage 1 blocker for a real client until Platform selects and owns the ingress. The request asks Platform to agree now to a pinned-generator CI drift check that regenerates the client and fails on differences, independent of transport choice.
+
+Tenant authority and conveyance are part of the same boundary decision. The separate [security issue #335](https://github.com/synanton/platform/issues/335) asks whether `X-Tenant-ID` is authoritative or validated against the verified identity's authorized tenant set, what client convention is canonical, and what happens for an unauthorized tenant. Until answered, the new shell may define a tenant-context interface and mock provider only; it must not wire real tenant selection or reproduce the legacy dual-storage/header behavior.
+
+If Platform cannot decide within the Stage 1 window, change this ADR status to **Deferred** and name the unresolved owner/ingress decision as the blocker. A thin transport-neutral `api-client` interface and mock may proceed only after agreement on request envelope, auth attachment boundary, stable error mapping, and correlation/provenance fields; no real generated client or endpoint implementation should ship before the canonical ingress and generation source are selected.
 
 ## Decision to be made
 
@@ -65,6 +73,6 @@ Before implementation, record a concrete decision covering all seven items above
 
 ## Open questions
 
-- Which Platform API/contract owner will make and record the selection?
+- Which Platform API/contract owner will make and record the selection? Track the response and evidence in [platform issue #336](https://github.com/synanton/platform/issues/336).
 - Is there a current supported browser ingress used by the ingestion/search demo? If so, where is it documented and tested?
 - Which generated artifact policy is compatible with current platform release and CI workflows?
