@@ -78,15 +78,25 @@ The trace records this as an open contract item; it must not be silently "solved
 
 The slice is split into two independently passable criteria so the page-provenance gap does not block shell migration.
 
-### A — Shell migration (not blocked on #338)
+### A — Shell migration
 
-1. With tenant A's session, `/ingestion` renders the traced create-source → submit-run → operation/run-status flow using the shared shell, navigation, status components, and error boundary.
+#### A-pre — start now (design-time, not blocked on #335/#336/#338)
+
+1. `/ingestion` and `/search` render inside the shared shell, navigation, status components, and error boundary.
 2. The operation/run states above are all representable; `PARTIAL`/quarantined outcomes are explicit, not collapsed into "failed".
-3. Tenant context is read from the single agreed convention (the `RequestContext` attachment point) — never browser storage or a client `X-Tenant-ID`, once #335 settles conveyance.
-4. The client consumes the transport-neutral `api-client` interface; its mock transport is used for the design-time run.
-5. With tenant B's session, the same query must not return tenant A's hit or resolve its provenance (behavior per #335).
+3. Tenant context comes from the single `TenantContextPort` seam (mock adapter today); never browser storage or a client `X-Tenant-ID`.
+4. The client consumes the transport-neutral `api-client` interface with `MockApiTransport`.
+5. With tenant B's mock session, the same query does not return tenant A's hit or resolve its provenance.
 
-This criterion exercises the shell, the `api-client` shape, and the tenant-context point. It needs no page ranges.
+A-pre needs no page ranges, no real ingress, and no real tenant provider. It is executable today against the mocks.
+
+#### A-post — blocked on #335
+
+1. The real tenant adapter plugs into `TenantContextPort` (validated identity/conveyance per #335; multi-tenant membership adds `authorizedTenantIds` + `selectTenant`).
+2. The swap test proves call sites do not move.
+3. Acceptance runs against the real backend (integration-time; also needs #336 for the real generated client).
+
+**Status:** A-pre scaffold complete (routes, shared status components, mock transport, cross-tenant negative); A-post blocked on #335.
 
 ### B — Provenance fidelity (blocked on #338)
 

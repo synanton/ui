@@ -20,6 +20,12 @@ The legacy `syntology-admin` stores tenant state in both `sessionStorage` and `l
 
 This ADR fixes the client-side invariant independently of that answer: the UI never asserts tenant scope. The #335 answer plugs into `TenantContextPort` and the session→`VerifiedIdentity` adapter without changing call sites.
 
+## Multi-tenant membership
+
+If Platform supports users who belong to multiple tenants, the rule refines: a client-supplied tenant **selection** is permitted only when derived from a server-validated selection (`VerifiedIdentity.authorizedTenantIds` plus `TenantContextPort.selectTenant`), never from storage or a free-form string. The request envelope still carries no raw tenant field; the selected tenant is part of the verified context.
+
+If membership is single-tenant, the rule stands as written. The platform answer is tracked in [#335](https://github.com/synanton/platform/issues/335).
+
 ## Consequences
 
 - Tenant-scoped cache invalidation and stale-request handling key off the verified identity, not a mutable local selection.

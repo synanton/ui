@@ -1,0 +1,13 @@
+{
+  "name": "@synanton/domain-components",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.tsx", "./styles.css": "./src/domain-components.css" },
+  "dependencies": {
+    "@synanton/design-tokens": "workspace:*",
+    "@synanton/ui-primitives": "workspace:*"
+  },
+  "peerDependencies": { "react": ">=18 <20" },
+  "scripts": { "typecheck": "tsc --noEmit -p ../../tsconfig.json" }
+}

@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
 
 const root = new URL("../", import.meta.url).pathname;
-const packagesRoot = join(root, "packages");
+const packageRoots = [join(root, "packages"), join(root, "apps")];
 const allowed = {
   "design-tokens": [],
   "ui-primitives": ["design-tokens"],
@@ -14,7 +14,13 @@ const allowed = {
   "config": []
 };
 const errors = [];
-const dirs = await readdir(packagesRoot, { withFileTypes: true }).catch(() => []);
+const dirs = [];
+for (const packageRoot of packageRoots) {
+  const entries = await readdir(packageRoot, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (entry.isDirectory()) dirs.push({ packageRoot, name: entry.name });
+  }
+}
 async function sourceFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
   const result = [];
@@ -26,8 +32,8 @@ async function sourceFiles(dir) {
   return result;
 }
 const packages = new Map();
-for (const dir of dirs.filter((entry) => entry.isDirectory())) {
-  const directory = join(packagesRoot, dir.name);
+for (const dir of dirs) {
+  const directory = join(dir.packageRoot, dir.name);
   const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8").catch(() => "{}"));
   if (!manifest.name) continue;
   const key = manifest.name.replace("@synanton/", "");

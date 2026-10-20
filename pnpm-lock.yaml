@@ -36,6 +36,30 @@ importers:
         specifier: ^5.0.5
         version: 5.0.5(jsdom@30.1.3)(vite@8.3.4)
 
+  apps/web:
+    dependencies:
+      '@synanton/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@synanton/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
+      '@synanton/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
+      '@synanton/domain-components':
+        specifier: workspace:*
+        version: link:../../packages/domain-components
+      '@synanton/ui-primitives':
+        specifier: workspace:*
+        version: link:../../packages/ui-primitives
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+
   packages/api-client: {}
 
   packages/app-shell:
@@ -51,6 +75,18 @@ importers:
         version: 18.3.1
 
   packages/design-tokens: {}
+
+  packages/domain-components:
+    dependencies:
+      '@synanton/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
+      '@synanton/ui-primitives':
+        specifier: workspace:*
+        version: link:../ui-primitives
+      react:
+        specifier: '>=18 <20'
+        version: 18.3.1
 
   packages/ui-primitives:
     dependencies:

@@ -137,6 +137,14 @@ export class BearerAuthAttachment implements AuthAttachment {
   }
 }
 
+/**
+ * Every attachment implementation must be registered here. The invariant test
+ * asserts each one adds only credentials — never a tenant-bearing header.
+ */
+export const registeredAuthAttachments: ReadonlyArray<() => AuthAttachment> = [
+  () => new BearerAuthAttachment(() => "test-token")
+];
+
 export interface ApiTransport {
   send<T>(request: ApiRequest, identity: VerifiedIdentity): Promise<ApiResponse<T>>;
 }
