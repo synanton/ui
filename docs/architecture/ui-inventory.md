@@ -40,9 +40,9 @@ The target is **one web workbench** in `synanton/ui`, with feature modules for i
 ## Decisions / next steps
 
 1. Adopt one `apps/web` workbench with feature modules; defer separate deployables until release cadence, audience, or operational constraints justify them.
-2. Record the web framework choice in ADR 0003 before migrating screens. Shared packages should not depend on the router/framework.
-3. Resolve ADR 0002 with platform API/contract owners via [platform decision request #336](https://github.com/synanton/platform/issues/336) before implementing a real `api-client`; the request includes the browser-demo decision question and generated-client drift CI proposal.
-4. Treat `platform/ui/shared-ui` as retire-not-port: its package manifest references a missing `src/index.ts`, its scripts are placeholders, and no consumers were found in repository search. Reconfirm tree/consumer search before removing it.
-5. Trace the working ingestion-to-search demo and identify the actual browser-facing endpoints before choosing the first migration slice.
+2. Record the web framework choice in [ADR 0003](../decisions/0003-web-framework.md) before migrating screens. Shared packages should not depend on the router/framework. **Decided 2026-10-20: React 18 + Vite.**
+3. Resolve ADR 0002 with platform API/contract owners via [platform decision request #336](https://github.com/synanton/platform/issues/336) before implementing a real `api-client`; the request includes the browser-demo decision question and generated-client drift CI proposal. Tenant authority/conveyance is tracked in [platform security issue #335](https://github.com/synanton/platform/issues/335).
+4. Treat `platform/ui/shared-ui` as retire-not-port: its package manifest references a missing `src/index.ts`, its scripts are placeholders, and no consumers were found in repository search. Reconfirm tree/consumer search before removing it. **Recorded in [ADR 0004](../decisions/0004-shared-ui-retirement.md); reconfirmed 2026-10-20 — retire, do not port.**
+5. Trace the working ingestion-to-search demo and identify the actual browser-facing endpoints before choosing the first migration slice. **Trace: [ingestion-search-vertical-slice-trace.md](./ingestion-search-vertical-slice-trace.md).**
 6. Introduce dependency-boundary CI before any app consumes the first shared package.
 7. Freeze `platform/ui` for new cross-cutting UI work after Stage 1; retain it only as a migration source until all required surfaces are verified in `synanton/ui`.
