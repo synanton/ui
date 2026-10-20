@@ -24,6 +24,10 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("AuthAttachment registry coverage", () => {
+  // Coverage: class declarations via `implements AuthAttachment` and
+  // `extends *AuthAttachment`. A factory returning an untyped object literal is
+  // not detected by this scan — register it explicitly and follow the ADR 0005
+  // PR checklist. Extend this scan if a factory-based attachment becomes a pattern.
   it("registers every AuthAttachment implementation in packages and apps", () => {
     const implementations = new Set<string>();
     for (const root of scanRoots) {
@@ -36,6 +40,9 @@ describe("AuthAttachment registry coverage", () => {
       for (const file of sourceFiles(directory)) {
         const source = readFileSync(file, "utf8");
         for (const match of source.matchAll(/class\s+(\w+)\s+implements\s+AuthAttachment\b/g)) {
+          implementations.add(match[1]);
+        }
+        for (const match of source.matchAll(/class\s+(\w+)\s+extends\s+(\w*AuthAttachment)\b/g)) {
           implementations.add(match[1]);
         }
       }

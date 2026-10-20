@@ -42,6 +42,16 @@ export interface OperationProblem {
   requestId: string;
 }
 
+/** Shared state rendering; operation and ingestion-run vocabularies stay distinct. */
+export function StateBadge({ state, known }: { state: string; known: boolean }) {
+  return (
+    <>
+      <span className="syn-state" data-state={state}>{known ? state : "UNKNOWN"}</span>
+      {!known ? <span className="syn-state__raw">{state}</span> : null}
+    </>
+  );
+}
+
 export interface OperationStatusProps {
   /** Accepts an unknown string so a new backend state degrades to UNKNOWN instead of crashing. */
   state: OperationState | (string & {});
@@ -52,12 +62,10 @@ export interface OperationStatusProps {
 
 export function OperationStatus({ state, progress, outcome, error }: OperationStatusProps) {
   const known = OPERATION_STATES.has(state);
-  const label = known ? state : "UNKNOWN";
   return (
     <section className="syn-operation" data-state={state} aria-live="polite" aria-label="Operation status">
       <header className="syn-operation__header">
-        <span className="syn-operation__state">{label}</span>
-        {!known ? <span className="syn-operation__raw">{state}</span> : null}
+        <StateBadge state={state} known={known} />
         {outcome ? (
           <span className={"syn-operation__outcome syn-operation__outcome--" + outcome.toLowerCase()}>
             {outcome}
@@ -146,11 +154,9 @@ export interface IngestionRunStatusProps {
 
 export function IngestionRunStatus({ state, result }: IngestionRunStatusProps) {
   const known = RUN_STATES.has(state);
-  const label = known ? state : "UNKNOWN";
   return (
     <section className="syn-run" data-state={state} aria-live="polite" aria-label="Ingestion run status">
-      <span className="syn-run__state">{label}</span>
-      {!known ? <span className="syn-run__raw">{state}</span> : null}
+      <StateBadge state={state} known={known} />
       {result ? <SyncResultSummary result={result} /> : null}
     </section>
   );

@@ -96,13 +96,20 @@ A-pre needs no page ranges, no real ingress, and no real tenant provider. It is 
 2. The swap test proves call sites do not move.
 3. Acceptance runs against the real backend (integration-time; also needs #336 for the real generated client).
 
-**Status:** A-pre complete ([PR #4](https://github.com/synanton/ui/pull/4)): shell renders `/ingestion` and `/search`; operation/run states via shared components (`packages/domain-components`); tenant-B negative (`apps/web/src/App.test.tsx`); mock transport (`apps/web/src/mock/mockPlatform.ts`). A-post blocked on #335.
+**Status:** A-pre complete ([PR #4](https://github.com/synanton/ui/pull/4)): shell renders `/ingestion` and `/search`; operation/run states via shared components (`packages/domain-components`); tenant-B negative (`apps/web/src/App.test.tsx`); mock transport (`apps/web/src/mock/mockPlatform.ts`). **B-pre complete** (`apps/web/src/routes/SearchPage.tsx`, `apps/web/src/App.test.tsx`). A-post blocked on #335; B-post blocked on #338.
 
-### B — Provenance fidelity (blocked on #338)
+### B — Provenance fidelity
 
-1. The citation/provenance interaction surfaces exactly the evidence fields the platform exposes — the current set recorded above — with correlation/provenance identifiers preserved.
-2. Page ranges (`page_start`/`page_end`) are displayed only when the public contract provides them. Until #338 resolves, the test asserts the current field set and does **not** silently substitute a non-public field.
-3. When #338 lands, extend this criterion to assert `page_start <= 40 <= page_end` for the page-40 document.
+#### B-pre — complete (design-time, not blocked on #338)
+
+1. The provenance interaction renders exactly the current public field set recorded above: `content_ref_id`, `source_version_ids`, `content_cache_reference`, `source_uri`, `source_sha256`, `chunk_sha256`, `processing_run_id`.
+2. Page ranges are explicitly absent, with the #338 note; the UI never reads a non-public field.
+3. Verified by `apps/web/src/routes/SearchPage.tsx` and the provenance case in `apps/web/src/App.test.tsx`.
+
+#### B-post — blocked on #338
+
+1. Display and assert `page_start <= 40 <= page_end` once the public search/provenance contract adds the fields.
+2. If #338 is answered as "deliberate omission," this criterion targets what `/v1` exposes instead of the legacy field set.
 
 ### Design-time vs integration-time
 
