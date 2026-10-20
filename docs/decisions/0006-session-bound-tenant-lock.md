@@ -20,6 +20,10 @@ The model is set-shaped (Q1 answered 2026-10-20; ADR 0005): an identity carries 
 6. **Background activity is in-tab only.** The initial design has no ServiceWorker or Web Worker outside the tab lifecycle; if one is added, it must obtain the tab's token through an explicit, same-tenant channel.
 7. **Client cache keys are prefixed by the locked tenant** and invalidated on switch. Server-side cache keying is tracked in the companion platform issue (#339).
 
+## Refresh flow
+
+The identity refresh cookie is browser-wide and HttpOnly; the tenant-bound access token is per-tab in `sessionStorage`. On access-token expiry, each tab calls `POST /v1/auth/tenant` with the refreshed identity token to re-mint its tenant-bound token; refresh tokens rotate. Do not put the refresh token in `sessionStorage` or attempt a per-tab cookie.
+
 ## Control hierarchy
 
 The token lock makes the tenant **unambiguous** for a tab. Data-layer enforcement (RLS or a scoped repository, platform #339) makes the token **meaningful**. Cache keying and tab isolation are **defense-in-depth**. Client-side controls are not the isolation guarantee and do not substitute for #339; A-post can be built without #339, but cannot be declared complete without it.
@@ -32,7 +36,7 @@ If membership later relaxes to N>1, the switcher becomes a product feature on to
 
 ### Accepted risk (bounded by N=1)
 
-The tenant-bound access token is stored in `sessionStorage`, which is JavaScript-readable. At N=1, a compromised token reaches exactly one tenant — the same exposure as any single-tenant app with a stolen session.
+The tenant-bound access token is stored in `sessionStorage`, which is JavaScript-readable. This is about the access token only; the identity refresh token remains in the HttpOnly cookie. At N=1, a compromised token reaches exactly one tenant — the same exposure as any single-tenant app with a stolen session.
 
 **Revisit trigger:** when the membership policy relaxes to N>1, migrate to an access token held in memory plus an HttpOnly refresh token (optionally behind a BFF). Do not relax the policy without scheduling that migration.
 
@@ -40,17 +44,28 @@ The tenant-bound access token is stored in `sessionStorage`, which is JavaScript
 
 Per-tab tenant contexts require the identity provider to support multiple simultaneous tenant contexts for one user. This is **not exercised at N=1** and is not a prerequisite for A-post.
 
-Verify it with the platform/IdP owner before policy relaxation. Platform-side token issuance and the IdP constraint are tracked with [#336](https://github.com/synanton/platform/issues/336) (see ADR 0002).
+Verify it with the platform/IdP owner before policy relaxation. Platform-side token issuance and the IdP constraint are tracked with [#336](https://github.com/synanton/platform/issues/336) (see ADR 0002). **Pattern A (platform token service, #340) avoids this constraint:** the platform holds the per-tab tenant context, so the IdP only needs the identity session.
 
 ## If the platform issues only a browser-wide cookie
 
-The tenant-bound `sessionStorage` token assumes the platform can mint a per-tenant token. If it can only issue a browser-wide session cookie, cookies are shared per domain and per-tab tenant isolation is not implementable with cookies alone. The pre-chosen branches, in preference order:
+**Inactive after #336's yes (2026-10-20); retained as history.** The tenant-bound `sessionStorage` token assumes the platform can mint a per-tenant token. If it can only issue a browser-wide session cookie, cookies are shared per domain and per-tab tenant isolation is not implementable with cookies alone. The pre-chosen branches, in preference order:
 
 1. **Tab-ID discriminator (Druva):** the cookie carries the identity session; a per-tab `X-Tab-ID` header selects the tenant context the server binds to that tab. Isolation is server-side and validated against `authorizedTenantIds`.
 2. **BFF (Clerk):** a backend-for-frontend holds the cookie session and issues short-lived tenant-bound tokens to the SPA; the SPA keeps per-tab tokens in memory.
 3. **Scalar-per-browser-session:** one tenant per browser at a time. This reverts to the model ADR 0006 was designed to avoid and makes the accepted-risk analysis moot; it is the last resort.
 
 This is a pre-recorded decision set, not an implementation. A cookie-only answer selects one branch rather than re-opening the design.
+
+## Conditional: no client-holdable tenant credential
+
+The current security-provider is a validator/facade: it signs an internal HS256 context for service-to-service propagation, publishes no JWKS, and exposes no `/v1/auth/tenant` ([security-provider#3](https://github.com/synanton/security-provider/issues/3)). If no component is designated to mint a client-holdable tenant token, activate the tab-ID branch:
+
+- the client holds only an **opaque tab ID**, not a tenant;
+- the server binds tab → tenant after validating the identity's membership;
+- ADR 0005's invariant holds: no client-supplied tenant identity;
+- the accepted risk changes: no client-held tenant token (better against XSS), but server-side tab→tenant binding becomes state that must be isolated, revoked, and audited.
+
+`TabSession` keeps the same port surface (`currentTenant`, `selectTenant`); only the stored value changes from a token to a tab ID, so the swap test still holds.
 
 ## Consequences
 
