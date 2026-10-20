@@ -1,6 +1,6 @@
 # ADR 0002 — API contracts and browser ingress
 
-- **Status:** Proposed — platform-owner decision required
+- **Status:** Accepted — 2026-10-20 (browser REST ingress; platform token service mints tenant-bound tokens)
 - **Date:** 2026-10-20
 - **Owners:** Synanton Platform API/contract owners; Synanton UI maintainers
 - **Related:** [RFC 0001 — UI Monorepo and Unification](0001-ui-monorepo-unification.md), [UI surface inventory](../architecture/ui-inventory.md), [ADR 0005 — Tenant identity is server-derived](0005-tenant-identity-server-derived.md), [ADR 0006 — Session-bound tenant lock and per-tab token model](0006-session-bound-tenant-lock.md), [ADR 0007 — Tenant token claim and error semantics](0007-tenant-token-claim.md), [Platform decision request #336](https://github.com/synanton/platform/issues/336), [Platform tenant-security issue #335](https://github.com/synanton/platform/issues/335)
@@ -17,6 +17,16 @@ The repository evidence is not yet sufficient to select a single browser contrac
 - The current Syntology admin SPA uses an Axios client against `/api/v1/ontology`. That does not establish a general ingress contract for search and ingestion.
 - The platform README records a tenant-propagation fix: tenant scope must come from verified identity; hops must not trust or forward a client-supplied tenant header, and missing context fails closed. The new client must follow the accepted platform auth/tenant contract, not preserve legacy header behavior.
 - The platform has frozen API contract artifacts for identity context, search, error model, Operation model, and OAuth auth spec (see platform issue/README context); this ADR must reference those canonical artifacts rather than redefining them.
+
+## Accepted decision (2026-10-20)
+
+- **Browser ingress:** direct REST; the UI uses a generated REST client (Option A).
+- **Identity tokens:** issued by the security provider.
+- **Tenant-bound access tokens:** minted by the platform token service via `POST /v1/auth/tenant` (pattern A), after validating the requested tenant against `authorizedTenantIds`.
+- **Generation/drift:** generated client from the canonical contract; pinned generator with a CI drift check. Implementation follows the platform-pinned toolchain.
+- **Fallbacks:** the cookie-only branches in [ADR 0006](0006-session-bound-tenant-lock.md) remain recorded but inactive.
+
+The decision-package text below is retained as the rationale/history.
 
 ## Platform-owner decision package
 

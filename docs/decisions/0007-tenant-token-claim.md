@@ -26,9 +26,15 @@
 6. **Selection endpoint:** `POST /v1/auth/tenant` with the identity-scoped token → 200 tenant-bound token; 404 uniform; 401 missing context.
 7. **Client:** `TabSession.selectTenant` calls the selection endpoint in the real adapter, stores the returned token per tab, and revokes the old token asynchronously. `ApiProblem`/`TenantProblemCode` carry the codes above.
 
+## Claim schema
+
+`iss`, `aud`, `sub`, `exp`, `nbf`, `jti`, `scope`, `tenant_id` (opaque; equals the branded `TenantId`), `token_type=tenant_access`.
+
+Lifetimes, key algorithm/JWKS/rotation, revocation, and refresh-token handling are pinned in platform [#340](https://github.com/synanton/platform/issues/340). The adapter validates this schema and maps provider failures to the error matrix above.
+
 ## Dependency
 
-Platform token issuance with a `tenant_id` claim is the platform half of Q4, tracked in [#336](https://github.com/synanton/platform/issues/336). If the platform issues only a browser-wide session cookie, this convention is not implementable and must surface at #336 before the real adapter is built.
+Platform token issuance with a `tenant_id` claim is the platform half of Q4, tracked in [#336](https://github.com/synanton/platform/issues/336). **#336 answered yes on 2026-10-20:** the platform will issue tenant-bound tokens. The remaining issuance contract (issuer/signing, claims, keys, revocation, refresh, audit) is tracked in [#340](https://github.com/synanton/platform/issues/340). The cookie-only fallback branches in ADR 0006 are inactive but retained for history.
 
 ## Enforcement
 
