@@ -29,7 +29,7 @@ The target model is set-shaped: `VerifiedIdentity` carries `authorizedTenantIds`
 
 `selectTenant` is a **client-initiated request** validated server-side against `authorizedTenantIds`; the resulting token is server-issued. The invariant applies to per-request tenant identity, not to the selection event. This is an extension of the rule, not an exception to it.
 
-Session-bound locking, per-tab tokens, and switching as a session lifecycle event are defined in [ADR 0006](0006-session-bound-tenant-lock.md). Platform #335 confirms the launch policy (single-membership vs multi-membership) and the server-side validation; the client model does not change with that answer.
+Session-bound locking, per-tab tokens, and switching as a session lifecycle event are defined in [ADR 0006](0006-session-bound-tenant-lock.md). **Launch policy is N=1 (settled);** the set-shaped target is latent, and `selectTenant` is a single-option path at launch. Platform #335 still confirms the model direction (Q1) and the convention/authority (Q3); the client model does not change with that answer.
 
 ## Consequences
 
