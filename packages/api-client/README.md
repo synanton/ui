@@ -22,3 +22,13 @@ satisfy and a mock transport:
 
 The mock is not throwaway: `app-shell` binds to this interface, so the real
 transport must preserve the same shape.
+
+## Tenant issuance port
+
+`TenantIssuanceTransport` is the port for `POST /v1/auth/tenant` (ADR 0007).
+`ConformanceTenantIssuanceDouble` encodes the full selection matrix for
+acceptance testing; the real transport swaps in without changing the adapter.
+
+**N=1:** the current Identity 1.29 resolution returns a scalar `tenant_id`;
+the adapter derives `authorizedTenantIds = [tenantId]`. Set-shaped population
+depends on platform #341; the adapter contract does not change.

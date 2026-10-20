@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts", "./tab-session": "./src/tabSession.ts" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./tab-session": "./src/tabSession.ts",
+    "./tenant-issuance": "./src/tenantIssuance.ts"
+  },
   "scripts": { "typecheck": "tsc --noEmit -p ../../tsconfig.json" }
 }

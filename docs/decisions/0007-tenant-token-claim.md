@@ -6,6 +6,8 @@
 
 ## Decision
 
+**Contract status: fixed.** Implementation ownership is platform [#340](https://github.com/synanton/platform/issues/340) — Path A recommended (security-provider extends with `TokenIssuer`, asymmetric JWKS, and `/v1/auth/tenant`); Path B is an external token service; Path C is the tab-ID fallback in ADR 0006. The client adapter is built against this contract regardless of the implementing component.
+
 1. **Convention:** the selected tenant travels as a claim inside the signed access token. The token carries only the selected tenant, not the full `authorizedTenantIds` set. No `X-Tenant-ID`, no tenant in the request body, no tenant in the path.
 2. **Selection is not per-request scope:** `selectTenant` is a client-initiated selection event that mints a new tenant-bound token after server-side validation against `authorizedTenantIds`.
 3. **Authority:** the server validates signature/issuer/audience/expiry, extracts the tenant claim, fails closed with 401 if absent, and establishes request context from the claim only. Membership is checked at issuance, refresh, and high-risk operations (writes, exports, admin).
@@ -32,9 +34,17 @@
 
 Lifetimes, key algorithm/JWKS/rotation, revocation, and refresh-token handling are pinned in platform [#340](https://github.com/synanton/platform/issues/340). The adapter validates this schema and maps provider failures to the error matrix above.
 
+## N=1 adaptation
+
+The current Identity 1.29 resolution returns a scalar `tenant_id`. At N=1 the adapter derives `authorizedTenantIds = [tenantId]` from that scalar. Set-shaped population depends on platform [#341](https://github.com/synanton/platform/issues/341); the adapter contract does not change when it lands.
+
+## Acceptance
+
+The client conformance suite (`packages/api-client/src/tenantIssuance.test.ts`) maps 1:1 to the error matrix, including the anti-oracle pair. It runs against `ConformanceTenantIssuanceDouble` now; the real transport is a one-line swap, and the same suite runs against it.
+
 ## Dependency
 
-Platform token issuance with a `tenant_id` claim is the platform half of Q4, tracked in [#336](https://github.com/synanton/platform/issues/336). **#336 answered yes on 2026-10-20:** the platform will issue tenant-bound tokens. The remaining issuance contract (issuer/signing, claims, keys, revocation, refresh, audit) is tracked in [#340](https://github.com/synanton/platform/issues/340). The cookie-only fallback branches in ADR 0006 are inactive but retained for history.
+The contract above is fixed; implementation ownership is [#340](https://github.com/synanton/platform/issues/340) (Path A recommended). [#336](https://github.com/synanton/platform/issues/336) answered yes on 2026-10-20. The cookie-only fallback branches in ADR 0006 are inactive but retained for history.
 
 ## Enforcement
 
