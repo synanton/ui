@@ -20,7 +20,7 @@ The repository evidence is not yet sufficient to select a single browser contrac
 
 ## Platform-owner decision package
 
-The concrete decision request is tracked in [synanton/platform#336](https://github.com/synanton/platform/issues/336). It asks whether the ingestion/search demo already uses a stable, supported browser-facing REST/HTTP surface. If yes, choose the option that matches that ingress and generate from the authoritative contract; if no, record ADR 0002 as a Stage 1 blocker for a real client until Platform selects and owns the ingress. The request asks Platform to agree now to a pinned-generator CI drift check that regenerates the client and fails on differences, independent of transport choice.
+The concrete decision request is tracked in [synanton/platform#336](https://github.com/synanton/platform/issues/336). It asks whether the ingestion/search demo already uses a stable, supported browser-facing REST/HTTP surface. If yes, choose the option that matches that ingress and generate from the authoritative contract; if no, record ADR 0002 as a Stage 1 blocker for a real client until Platform selects and owns the ingress. The request asks Platform to agree now to a pinned-generator CI drift check that regenerates the client and fails if committed generated output differs, independent of transport choice.
 
 Tenant authority and conveyance are part of the same boundary decision. The separate [security issue #335](https://github.com/synanton/platform/issues/335) asks whether `X-Tenant-ID` is authoritative or validated against the verified identity's authorized tenant set, what client convention is canonical, and what happens for an unauthorized tenant. Until answered, the new shell may define a tenant-context interface and mock provider only; it must not wire real tenant selection or reproduce the legacy dual-storage/header behavior.
 
@@ -42,18 +42,15 @@ Platform owners must explicitly decide:
 
 ### A. Generated REST client from OpenAPI / protobuf through an approved HTTP gateway or BFF
 
-- **Pros:** Natural browser transport; integrates with standard HTTP auth, proxying, and observability; can generate typed clients from an OpenAPI contract.
-- **Cons:** Requires an authoritative OpenAPI surface or a maintained, reproducible protobuf-to-HTTP mapping; a BFF introduces an additional deployment boundary if one does not already exist.
+This is the preferred fit when the ingestion/search demo already has a stable, supported browser-facing HTTP surface, and it integrates naturally with HTTP auth, proxying, and observability. **Trade-off:** the OpenAPI contract or protobuf-to-HTTP mapping and gateway/BFF must be authoritative and reproducible; introducing a new BFF adds a deployment boundary.
 
 ### B. Connect or gRPC-Web client generated from protobuf
 
-- **Pros:** Strong alignment with protobuf contracts; generated typed clients and service definitions can reduce schema duplication.
-- **Cons:** Requires platform-supported browser transport, compatible ingress/proxying, and a decision about streaming and authentication. Existing repository evidence does not prove this boundary is deployed for the UI.
+This keeps generated client code close to protobuf service contracts and can reduce schema duplication when Platform already supports this browser transport at the relevant ingress. **Trade-off:** browser ingress, proxying, authentication, and streaming behavior must be explicitly supported; current repository evidence does not prove this boundary is deployed for the UI.
 
 ### C. Direct REST calls with generated types but no generated client
 
-- **Pros:** Smaller initial runtime/tooling footprint; can fit an existing REST endpoint.
-- **Cons:** Handwritten transport methods and endpoint mappings can drift; less attractive unless the platform explicitly standardizes this approach and CI validates schema compatibility.
+This has the smallest initial runtime/tooling footprint when reusing an existing REST endpoint. **Trade-off:** handwritten transport methods and endpoint mappings can drift, so contract compatibility checks and explicit Platform ownership are essential.
 
 ## Recommendation
 
