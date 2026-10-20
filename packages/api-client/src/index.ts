@@ -25,6 +25,18 @@ export type ApiErrorCode =
   | "OPERATION_FAILED"
   | "INTERNAL_ERROR";
 
+/** Tenant-contract codes (ADR 0007). */
+export type TenantProblemCode =
+  | "TENANT_IN_REQUEST_BODY"
+  | "TENANT_HEADER_NOT_SUPPORTED"
+  | "TENANT_CONTEXT_MISSING"
+  | "TENANT_ACCESS_DENIED"
+  | "TENANT_NOT_AVAILABLE"
+  | "TENANT_SELECTION_REJECTED"
+  | "TENANT_SWITCH_FAILED"
+  | "SWITCH_IN_PROGRESS"
+  | "REQUEST_ABORTED";
+
 export interface ApiResponse<T> {
   status: number;
   data: T;
@@ -33,7 +45,7 @@ export interface ApiResponse<T> {
 
 /** Frozen problem shape; transport failures map onto this. */
 export interface ApiProblem {
-  code: ApiErrorCode | string;
+  code: ApiErrorCode | TenantProblemCode | string;
   message: string;
   retryable: boolean;
   requestId: string;
@@ -97,6 +109,8 @@ export function tenantId(value: string): TenantId {
 export interface VerifiedIdentity {
   readonly tenantId: TenantId;
   readonly principalId: string;
+  /** The server-validated membership set; `tenantId` is the selected member. */
+  readonly authorizedTenantIds: ReadonlySet<TenantId>;
   readonly correlationId?: string;
   readonly [verifiedIdentityBrand]: true;
 }
@@ -104,6 +118,8 @@ export interface VerifiedIdentity {
 export interface IdentityInput {
   tenantId: TenantId;
   principalId: string;
+  /** Defaults to the single selected tenant (N=1). */
+  authorizedTenantIds?: Iterable<TenantId>;
   correlationId?: string;
 }
 
@@ -117,9 +133,19 @@ export function verifiedIdentityFrom(input: IdentityInput): VerifiedIdentity {
       requestId: newRequestId()
     });
   }
+  const authorizedTenantIds = new Set(input.authorizedTenantIds ?? [input.tenantId]);
+  if (authorizedTenantIds.size === 0 || !authorizedTenantIds.has(input.tenantId)) {
+    throw new ApiClientError({
+      code: "TENANT_SELECTION_REJECTED",
+      message: "The selected tenant must be in authorizedTenantIds",
+      retryable: false,
+      requestId: newRequestId()
+    });
+  }
   return Object.freeze({
     tenantId: input.tenantId,
     principalId: input.principalId,
+    authorizedTenantIds,
     ...(input.correlationId ? { correlationId: input.correlationId } : {}),
     [verifiedIdentityBrand]: true as const
   }) as VerifiedIdentity;
@@ -180,6 +206,8 @@ export interface ApiClientOptions {
   transport: ApiTransport;
   session: SessionIdentityProvider;
   auth: AuthAttachment;
+  /** Session-wide signal; a tenant switch aborts and replaces it. */
+  signal?: () => AbortSignal;
 }
 
 export interface ApiClient {
@@ -189,6 +217,14 @@ export interface ApiClient {
 export function toApiClientError(error: unknown): ApiClientError {
   if (error instanceof ApiClientError) {
     return error;
+  }
+  if (error instanceof Error && error.name === "AbortError") {
+    return new ApiClientError({
+      code: "REQUEST_ABORTED",
+      message: "Request aborted",
+      retryable: true,
+      requestId: newRequestId()
+    });
   }
   const problem = (error as { problem?: ApiProblem } | null)?.problem;
   if (problem) {
@@ -226,6 +262,21 @@ function assertNoTenantInBody(body: unknown): void {
   }
 }
 
+/** Symmetric rejection: a tenant header is not a supported selector (ADR 0007). */
+function assertNoTenantHeaders(headers: Record<string, string> | undefined): void {
+  for (const name of Object.keys(headers ?? {})) {
+    if (name.toLowerCase().includes("tenant")) {
+      throw new ApiClientError({
+        code: "TENANT_HEADER_NOT_SUPPORTED",
+        message: "Tenant identity must not be supplied as a request header; it derives from the verified token",
+        retryable: false,
+        requestId: newRequestId(),
+        details: { header: name }
+      });
+    }
+  }
+}
+
 export class ApiClientImpl implements ApiClient {
   constructor(private readonly options: ApiClientOptions) {}
 
@@ -240,9 +291,13 @@ export class ApiClientImpl implements ApiClient {
       });
     }
     assertNoTenantInBody(request.body);
+    assertNoTenantHeaders(request.headers);
     const headers = this.options.auth.attach(request.headers ?? {});
     try {
-      return await this.options.transport.send<T>({ ...request, headers }, identity);
+      return await this.options.transport.send<T>(
+        { ...request, headers, signal: request.signal ?? this.options.signal?.() },
+        identity
+      );
     } catch (error) {
       throw toApiClientError(error);
     }
@@ -281,8 +336,9 @@ export class MockApiTransport implements ApiTransport {
 
 export function createMockApiClient(
   session: SessionIdentityProvider,
-  auth: AuthAttachment = new BearerAuthAttachment(() => "mock-token")
+  auth: AuthAttachment = new BearerAuthAttachment(() => "mock-token"),
+  signal?: () => AbortSignal
 ): { client: ApiClient; transport: MockApiTransport } {
   const transport = new MockApiTransport();
-  return { client: new ApiClientImpl({ transport, session, auth }), transport };
+  return { client: new ApiClientImpl({ transport, session, auth, signal }), transport };
 }

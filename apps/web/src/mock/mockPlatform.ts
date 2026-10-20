@@ -1,15 +1,12 @@
 import {
   BearerAuthAttachment,
   createMockApiClient,
-  tenantId as brandTenantId,
-  verifiedIdentityFrom,
-  type ApiClient,
-  type SessionIdentityProvider
+  type ApiClient
 } from "@synanton/api-client";
+import type { TabSession } from "@synanton/api-client/tab-session";
 
 export interface MockPlatform {
   client: ApiClient;
-  tenantId: string;
 }
 
 /**
@@ -40,12 +37,11 @@ const searchFixtures: SearchFixture[] = [
   }
 ];
 
-export function createMockPlatform(tenantId = "demo"): MockPlatform {
-  const identity = verifiedIdentityFrom({ tenantId: brandTenantId(tenantId), principalId: "alice" });
-  const session: SessionIdentityProvider = { current: () => identity };
+export function createMockPlatform(session: TabSession): MockPlatform {
   const { client, transport } = createMockApiClient(
     session,
-    new BearerAuthAttachment(() => "mock-token")
+    new BearerAuthAttachment(() => session.currentToken()),
+    () => session.signal()
   );
 
   transport.on("POST", "/v1/ingestion-runs", () => ({
@@ -91,5 +87,5 @@ export function createMockPlatform(tenantId = "demo"): MockPlatform {
     requestId: "req-prov"
   }));
 
-  return { client, tenantId };
+  return { client };
 }

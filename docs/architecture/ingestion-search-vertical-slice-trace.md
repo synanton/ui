@@ -90,13 +90,13 @@ The slice is split into two independently passable criteria so the page-provenan
 
 A-pre needs no page ranges, no real ingress, and no real tenant provider. It is executable today against the mocks.
 
-#### A-post — blocked on #335
+#### A-post — Q1 answered set-shaped; construction in progress
 
 1. The real tenant adapter plugs into `TenantContextPort` (validated identity/conveyance per #335; multi-tenant membership adds `authorizedTenantIds` + `selectTenant`).
 2. The swap test proves call sites do not move.
 3. Acceptance runs against the real backend (integration-time; also needs #336 for the real generated client).
 
-**Status:** A-pre complete ([PR #4](https://github.com/synanton/ui/pull/4)): shell renders `/ingestion` and `/search`; operation/run states via shared components (`packages/domain-components`); tenant-B negative (`apps/web/src/App.test.tsx`); mock transport (`apps/web/src/mock/mockPlatform.ts`). **B-pre complete** (`apps/web/src/routes/SearchPage.tsx`, `apps/web/src/App.test.tsx`). A-post blocked on #335; B-post blocked on #338.
+**Status:** A-pre complete ([PR #4](https://github.com/synanton/ui/pull/4)): shell renders `/ingestion` and `/search`; operation/run states via shared components (`packages/domain-components`); tenant-B negative (`apps/web/src/App.test.tsx`); mock transport (`apps/web/src/mock/mockPlatform.ts`). **B-pre complete** (`apps/web/src/routes/SearchPage.tsx`, `apps/web/src/App.test.tsx`). **A-post construction in progress:** Q1 answered set-shaped; `TabSession` + `TabTenantContextProvider` + multi-tab test + abort/transient behavior. B-post blocked on #338.
 
 ### B — Provenance fidelity
 

@@ -1,10 +1,11 @@
 import * as React from "react";
-import { tenantId as brandTenantId } from "@synanton/api-client";
+import { tenantId as brandTenantId, verifiedIdentityFrom } from "@synanton/api-client";
+import { SessionStorageTokenStore, TabSession } from "@synanton/api-client/tab-session";
 import {
   AppShell,
   AuthBoundary,
   ErrorBoundary,
-  MockTenantContextProvider,
+  TabTenantContextProvider,
   TenantContextProvider
 } from "@synanton/app-shell";
 import { createMockPlatform } from "./mock/mockPlatform";
@@ -24,21 +25,25 @@ export interface AppProps {
 /** A-pre scaffold: shared shell + traced routes, backed by mocks. */
 export function App({ initialPath = "/ingestion", tenantId = "demo" }: AppProps) {
   const path = initialPath;
-  const platform = React.useMemo(() => createMockPlatform(tenantId), [tenantId]);
-  const tenant = React.useMemo(
-    () => {
-      const locked = brandTenantId(tenantId);
-      return new MockTenantContextProvider({
-        activeTenantId: locked,
-        authorizedTenantIds: [locked],
-        status: "ready"
-      });
-    },
-    [tenantId]
-  );
+  const runtime = React.useMemo(() => {
+    const locked = brandTenantId(tenantId);
+    const session = new TabSession({
+      identity: verifiedIdentityFrom({ tenantId: locked, principalId: "alice" }),
+      store: new SessionStorageTokenStore("synanton.accessToken"),
+      issueToken: async (next) => `mock-token-${next}`,
+      channelName: "synanton-tenant"
+    });
+    return {
+      session,
+      platform: createMockPlatform(session),
+      tenant: new TabTenantContextProvider(session)
+    };
+  }, [tenantId]);
+
+  React.useEffect(() => () => runtime.session.close(), [runtime]);
 
   return (
-    <TenantContextProvider value={tenant}>
+    <TenantContextProvider value={runtime.tenant}>
       <AuthBoundary status="authenticated">
         <ErrorBoundary>
           <AppShell
@@ -48,8 +53,8 @@ export function App({ initialPath = "/ingestion", tenantId = "demo" }: AppProps)
             capabilities={["ingestion", "search"]}
           >
             {path === "/search"
-              ? <SearchPage client={platform.client} />
-              : <IngestionPage client={platform.client} />}
+              ? <SearchPage client={runtime.platform.client} />
+              : <IngestionPage client={runtime.platform.client} />}
           </AppShell>
         </ErrorBoundary>
       </AuthBoundary>
