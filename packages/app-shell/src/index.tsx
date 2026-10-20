@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { TenantId } from "@synanton/api-client";
+import type { TabSession } from "@synanton/api-client/tab-session";
 import "@synanton/design-tokens/tokens.css";
 import "@synanton/ui-primitives/styles.css";
 import "./shell.css";
@@ -99,6 +100,26 @@ export class MockTenantContextProvider implements TenantContextPort {
       throw new Error("Mock tenant selection is outside the authorized tenant set");
     }
     this.snapshot = { ...this.snapshot, activeTenantId: tenantId, status: "ready" };
+  }
+}
+
+/**
+ * Production-shaped tenant provider backed by a per-tab {@link TabSession}.
+ * The session owns locking, token re-issue/revoke, and cross-tab coordination.
+ */
+export class TabTenantContextProvider implements TenantContextPort {
+  constructor(private readonly session: TabSession) {}
+
+  getSnapshot(): TenantContextSnapshot {
+    return {
+      activeTenantId: this.session.currentTenant(),
+      authorizedTenantIds: this.session.authorizedTenantIds(),
+      status: "ready"
+    };
+  }
+
+  requestTenantSelection(tenantId: TenantId): Promise<void> {
+    return this.session.selectTenant(tenantId);
   }
 }
 

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button, Surface } from "@synanton/ui-primitives";
-import type { ApiClient } from "@synanton/api-client";
+import { ApiClientError, type ApiClient } from "@synanton/api-client";
 
 interface Hit {
   object_id: string;
@@ -29,10 +29,12 @@ export function SearchPage({ client }: { client: ApiClient }) {
   const [hits, setHits] = React.useState<Hit[] | null>(null);
   const [provenance, setProvenance] = React.useState<Provenance | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [transient, setTransient] = React.useState<string | null>(null);
 
   async function search(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    setTransient(null);
     try {
       const response = await client.request<SearchResponse>({
         method: "POST",
@@ -41,6 +43,10 @@ export function SearchPage({ client }: { client: ApiClient }) {
       });
       setHits(response.data.results);
     } catch (failure) {
+      if (failure instanceof ApiClientError && failure.code === "REQUEST_ABORTED") {
+        setTransient("Tenant changed; the in-flight request was cancelled.");
+        return;
+      }
       setError(failure instanceof Error ? failure.message : "Search failed");
     }
   }
@@ -61,6 +67,7 @@ export function SearchPage({ client }: { client: ApiClient }) {
         <input id="query" value={query} onChange={(event) => setQuery(event.target.value)} />
         <Button type="submit">Search</Button>
       </form>
+      {transient ? <p role="status">{transient}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       {hits
         ? hits.length === 0

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button, Surface } from "@synanton/ui-primitives";
-import type { ApiClient } from "@synanton/api-client";
+import { ApiClientError, type ApiClient } from "@synanton/api-client";
 import {
   IngestionRunStatus,
   OperationStatus,
@@ -29,9 +29,11 @@ export function IngestionPage({ client }: { client: ApiClient }) {
   const [operation, setOperation] = React.useState<OperationView | null>(null);
   const [run, setRun] = React.useState<RunView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [transient, setTransient] = React.useState<string | null>(null);
 
   async function submit() {
     setError(null);
+    setTransient(null);
     try {
       const created = await client.request<RunRef>({
         method: "POST",
@@ -50,6 +52,10 @@ export function IngestionPage({ client }: { client: ApiClient }) {
       });
       setRun(runView.data);
     } catch (failure) {
+      if (failure instanceof ApiClientError && failure.code === "REQUEST_ABORTED") {
+        setTransient("Tenant changed; the in-flight request was cancelled.");
+        return;
+      }
       setError(failure instanceof Error ? failure.message : "Ingestion request failed");
     }
   }
@@ -59,6 +65,7 @@ export function IngestionPage({ client }: { client: ApiClient }) {
       <h1>Ingestion</h1>
       <p>Submit a sample document through the shared ingestion contract.</p>
       <Button onClick={submit}>Submit sample ingestion</Button>
+      {transient ? <p role="status">{transient}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       {operation
         ? <OperationStatus state={operation.status} outcome={operation.outcome} progress={operation.progress} />

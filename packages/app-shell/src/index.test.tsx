@@ -1,13 +1,15 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { tenantId } from "@synanton/api-client";
+import { tenantId, verifiedIdentityFrom } from "@synanton/api-client";
+import { TabSession } from "@synanton/api-client/tab-session";
 import {
   AppShell,
   AuthBoundary,
   CapabilityGate,
   ErrorBoundary,
   MockTenantContextProvider,
+  TabTenantContextProvider,
   TenantContextProvider,
   filterNavigationItems,
   useTenantContext,
@@ -60,6 +62,29 @@ describe("app-shell", () => {
     );
 
     expect(screen.getByText("tenant:tenant-a")).toBeTruthy();
+  });
+
+  it("accepts the tab-session provider without changing call sites", () => {
+    let token: string | null = null;
+    const session = new TabSession({
+      identity: verifiedIdentityFrom({ tenantId: tenantId("tenant-a"), principalId: "alice" }),
+      store: { get: () => token, set: (next) => { token = next; } },
+      issueToken: async () => "token-a"
+    });
+    const provider = new TabTenantContextProvider(session);
+
+    function Probe() {
+      const tenant = useTenantContext();
+      return <span>tab:{tenant.getSnapshot().activeTenantId}</span>;
+    }
+
+    render(
+      <TenantContextProvider value={provider}>
+        <Probe />
+      </TenantContextProvider>
+    );
+
+    expect(screen.getByText("tab:tenant-a")).toBeTruthy();
   });
 
   it("mock tenant provider rejects selection outside the authorized set", async () => {

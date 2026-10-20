@@ -8,7 +8,7 @@
 
 The legacy `syntology-admin` stored tenant state in both `sessionStorage` and `localStorage` and sent `X-Tenant-ID`. ADR 0005 fixes the authority rule: tenant scope is server-derived. This ADR fixes the **browser session model** that keeps a selected tenant from bleeding across tabs or surviving a switch.
 
-The target model is set-shaped (ADR 0005): an identity carries `authorizedTenantIds`, and a session selects one tenant from that set.
+The model is set-shaped (Q1 answered 2026-10-20; ADR 0005): an identity carries `authorizedTenantIds`, and a session selects one tenant from that set.
 
 ## Decision
 

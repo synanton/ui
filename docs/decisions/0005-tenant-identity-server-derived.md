@@ -12,7 +12,7 @@ No auth attachment may carry tenant identity as a client-supplied header or para
 - The client derives scope only from a `VerifiedIdentity` produced by the auth boundary; a missing identity is rejected before the transport is called.
 - A request body containing `tenant_id`/`tenant` is rejected with `TENANT_IN_REQUEST_BODY`, not silently ignored.
 - `BearerAuthAttachment` is the reference attachment; it adds only `Authorization`.
-- The target model is set-shaped: `VerifiedIdentity` carries `authorizedTenantIds`, and a session selects one tenant from that set. Single-tenant is the N=1 case.
+- The model is set-shaped (Q1 answered 2026-10-20): `VerifiedIdentity` carries `authorizedTenantIds`, and a session selects one tenant from that set. Single-tenant is the N=1 case.
 - `TenantContextPort.selectTenant(id)` validates against `authorizedTenantIds` and fails closed; the selected tenant is a derived context, not a caller-supplied string.
 - `TenantId` is a branded type: a raw string cannot flow into a verified identity without passing through `tenantId(...)` at the auth boundary.
 - A future attachment that carries tenant identity client-side is a **contract violation, not a variant**.
@@ -25,11 +25,11 @@ This ADR fixes the client-side invariant independently of that answer: the UI ne
 
 ## Set-shaped tenant model
 
-The target model is set-shaped: `VerifiedIdentity` carries `authorizedTenantIds`, and a session selects one tenant from that set. Single-tenant is N=1. `TenantContextPort.selectTenant(id)` validates against the set and fails closed. The request envelope still carries no raw tenant field; the selected tenant is part of the verified context.
+The model is set-shaped (platform-confirmed, Q1 answered 2026-10-20): `VerifiedIdentity` carries `authorizedTenantIds`, and a session selects one tenant from that set. Single-tenant is N=1. `TenantContextPort.selectTenant(id)` validates against the set and fails closed. The request envelope still carries no raw tenant field; the selected tenant is part of the verified context.
 
 `selectTenant` is a **client-initiated request** validated server-side against `authorizedTenantIds`; the resulting token is server-issued. The invariant applies to per-request tenant identity, not to the selection event. This is an extension of the rule, not an exception to it.
 
-Session-bound locking, per-tab tokens, and switching as a session lifecycle event are defined in [ADR 0006](0006-session-bound-tenant-lock.md). **Launch policy is N=1 (settled);** the set-shaped target is latent, and `selectTenant` is a single-option path at launch. Platform #335 still confirms the model direction (Q1) and the convention/authority (Q3); the client model does not change with that answer.
+Session-bound locking, per-tab tokens, and switching as a session lifecycle event are defined in [ADR 0006](0006-session-bound-tenant-lock.md). **Launch policy is N=1 (settled);** the set-shaped target is latent, and `selectTenant` is a single-option path at launch. Q1 answered set-shaped on 2026-10-20; the set-shaped model is platform-confirmed. Q3 (convention/authority) remains open and gates real-adapter acceptance.
 
 ## Consequences
 
