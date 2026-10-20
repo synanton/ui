@@ -139,10 +139,17 @@ export class BearerAuthAttachment implements AuthAttachment {
 
 /**
  * Every attachment implementation must be registered here. The invariant test
- * asserts each one adds only credentials — never a tenant-bearing header.
+ * asserts each one adds only credentials — never a tenant-bearing header — and
+ * a static coverage test fails if a class implements `AuthAttachment` without
+ * being registered.
  */
-export const registeredAuthAttachments: ReadonlyArray<() => AuthAttachment> = [
-  () => new BearerAuthAttachment(() => "test-token")
+export interface RegisteredAuthAttachment {
+  name: string;
+  create: () => AuthAttachment;
+}
+
+export const registeredAuthAttachments: ReadonlyArray<RegisteredAuthAttachment> = [
+  { name: "BearerAuthAttachment", create: () => new BearerAuthAttachment(() => "test-token") }
 ];
 
 export interface ApiTransport {

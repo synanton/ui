@@ -19,6 +19,12 @@
   font-weight: 600;
 }
 
+.syn-operation__raw,
+.syn-run__raw {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
 .syn-operation__outcome {
   border-radius: var(--radius-sm);
   padding: 0 var(--space-2);

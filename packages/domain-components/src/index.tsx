@@ -3,6 +3,10 @@ import "@synanton/design-tokens/tokens.css";
 import "@synanton/ui-primitives/styles.css";
 import "./domain-components.css";
 
+// Operation (cross-plane lifecycle) and IngestionRun (ingestion-specific) are
+// distinct platform vocabularies. IngestionRunStatus owns run state and
+// composes SyncResult; it must not restate or collapse the Operation states.
+
 export type OperationState =
   | "ACCEPTED"
   | "QUEUED"
@@ -12,6 +16,17 @@ export type OperationState =
   | "CANCEL_REQUESTED"
   | "CANCELLED"
   | "EXPIRED";
+
+const OPERATION_STATES: ReadonlySet<string> = new Set<OperationState>([
+  "ACCEPTED",
+  "QUEUED",
+  "RUNNING",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCEL_REQUESTED",
+  "CANCELLED",
+  "EXPIRED"
+]);
 
 export type OperationOutcome = "FULL" | "PARTIAL";
 
@@ -28,17 +43,21 @@ export interface OperationProblem {
 }
 
 export interface OperationStatusProps {
-  state: OperationState;
+  /** Accepts an unknown string so a new backend state degrades to UNKNOWN instead of crashing. */
+  state: OperationState | (string & {});
   progress?: OperationProgress;
   outcome?: OperationOutcome | null;
   error?: OperationProblem | null;
 }
 
 export function OperationStatus({ state, progress, outcome, error }: OperationStatusProps) {
+  const known = OPERATION_STATES.has(state);
+  const label = known ? state : "UNKNOWN";
   return (
     <section className="syn-operation" data-state={state} aria-live="polite" aria-label="Operation status">
       <header className="syn-operation__header">
-        <span className="syn-operation__state">{state}</span>
+        <span className="syn-operation__state">{label}</span>
+        {!known ? <span className="syn-operation__raw">{state}</span> : null}
         {outcome ? (
           <span className={"syn-operation__outcome syn-operation__outcome--" + outcome.toLowerCase()}>
             {outcome}
@@ -69,6 +88,21 @@ export type IngestionRunState =
   | "UNCHANGED"
   | "DELETED"
   | "QUARANTINED";
+
+const RUN_STATES: ReadonlySet<string> = new Set<IngestionRunState>([
+  "DISCOVERED",
+  "SCHEDULED",
+  "ACQUIRING",
+  "VALIDATING",
+  "PUBLISHED",
+  "COMPLETED",
+  "FAILED",
+  "CANCELLED",
+  "SKIPPED",
+  "UNCHANGED",
+  "DELETED",
+  "QUARANTINED"
+]);
 
 export interface SyncResult {
   discovered: number;
@@ -105,14 +139,18 @@ export function SyncResultSummary({ result }: { result: SyncResult }) {
 }
 
 export interface IngestionRunStatusProps {
-  state: IngestionRunState;
+  /** Accepts an unknown string so a new backend state degrades to UNKNOWN instead of crashing. */
+  state: IngestionRunState | (string & {});
   result?: SyncResult | null;
 }
 
 export function IngestionRunStatus({ state, result }: IngestionRunStatusProps) {
+  const known = RUN_STATES.has(state);
+  const label = known ? state : "UNKNOWN";
   return (
     <section className="syn-run" data-state={state} aria-live="polite" aria-label="Ingestion run status">
-      <span className="syn-run__state">{state}</span>
+      <span className="syn-run__state">{label}</span>
+      {!known ? <span className="syn-run__raw">{state}</span> : null}
       {result ? <SyncResultSummary result={result} /> : null}
     </section>
   );

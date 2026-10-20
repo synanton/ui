@@ -41,4 +41,18 @@ describe("domain status components", () => {
 
     expect(screen.getByText("quarantined")).toBeTruthy();
   });
+
+  it("degrades an unknown operation state to UNKNOWN with the raw label", () => {
+    render(<OperationStatus state="PAUSED" />);
+
+    expect(screen.getByText("UNKNOWN")).toBeTruthy();
+    expect(screen.getByText("PAUSED")).toBeTruthy();
+  });
+
+  it("degrades an unknown run state to UNKNOWN with the raw label", () => {
+    render(<IngestionRunStatus state="PAUSED" />);
+
+    expect(screen.getByText("UNKNOWN")).toBeTruthy();
+    expect(screen.getByText("PAUSED")).toBeTruthy();
+  });
 });

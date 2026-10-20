@@ -15,6 +15,30 @@ export interface MockPlatform {
  * Design-time platform used by the A-pre shell. Tenant authority is the verified
  * identity; tenant B intentionally receives no results.
  */
+interface SearchFixture {
+  tenantId: string;
+  hit: {
+    object_id: string;
+    title: string;
+    snippet: string;
+    provenance_ref: string;
+  };
+}
+
+// Tenant-A fixtures only. Tenant-B's empty result must come from the filter,
+// not from the absence of fixtures for every tenant.
+const searchFixtures: SearchFixture[] = [
+  {
+    tenantId: "demo",
+    hit: {
+      object_id: "ref-1:0",
+      title: "Software Project Management",
+      snippet: "When the map and the terrain disagree, trust the terrain.",
+      provenance_ref: "/v1/knowledge/ref-1:0/provenance"
+    }
+  }
+];
+
 export function createMockPlatform(tenantId = "demo"): MockPlatform {
   const identity = verifiedIdentityFrom({ tenantId, principalId: "alice" });
   const session: SessionIdentityProvider = { current: () => identity };
@@ -43,16 +67,12 @@ export function createMockPlatform(tenantId = "demo"): MockPlatform {
   }));
   transport.on("POST", "/v1/search", (_request, verified) => ({
     status: 200,
-    data: verified.tenantId === "demo"
-      ? {
-          results: [{
-            object_id: "ref-1:0",
-            title: "Software Project Management",
-            snippet: "When the map and the terrain disagree, trust the terrain.",
-            provenance_ref: "/v1/knowledge/ref-1:0/provenance"
-          }]
-        }
-      : { results: [] },
+    data: {
+      // Load-bearing filter: removing it makes the tenant-B test fail.
+      results: searchFixtures
+        .filter((fixture) => fixture.tenantId === verified.tenantId)
+        .map((fixture) => fixture.hit)
+    },
     requestId: "req-search"
   }));
   transport.on("GET", "/v1/knowledge/ref-1:0/provenance", () => ({

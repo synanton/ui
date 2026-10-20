@@ -96,7 +96,7 @@ A-pre needs no page ranges, no real ingress, and no real tenant provider. It is 
 2. The swap test proves call sites do not move.
 3. Acceptance runs against the real backend (integration-time; also needs #336 for the real generated client).
 
-**Status:** A-pre scaffold complete (routes, shared status components, mock transport, cross-tenant negative); A-post blocked on #335.
+**Status:** A-pre complete ([PR #4](https://github.com/synanton/ui/pull/4)): shell renders `/ingestion` and `/search`; operation/run states via shared components (`packages/domain-components`); tenant-B negative (`apps/web/src/App.test.tsx`); mock transport (`apps/web/src/mock/mockPlatform.ts`). A-post blocked on #335.
 
 ### B — Provenance fidelity (blocked on #338)
 

@@ -114,8 +114,8 @@ describe("api-client", () => {
 
   it("every registered AuthAttachment adds only Authorization and no tenant header", () => {
     expect(registeredAuthAttachments.length).toBeGreaterThan(0);
-    for (const factory of registeredAuthAttachments) {
-      const headers = factory().attach({ "X-Request-Id": "r1" });
+    for (const { create } of registeredAuthAttachments) {
+      const headers = create().attach({ "X-Request-Id": "r1" });
       expect(headers.Authorization).toBeTruthy();
       for (const name of Object.keys(headers)) {
         expect(name.toLowerCase()).not.toContain("tenant");

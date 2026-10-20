@@ -27,6 +27,8 @@ describe("web shell (A-pre)", () => {
   });
 
   it("does not leak tenant A results to tenant B", async () => {
+    // Tenant-A fixtures exist; tenant B's empty result comes from the mock's
+    // verified-tenant filter. Removing the filter makes this test fail.
     render(<App initialPath="/search" tenantId="other" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
