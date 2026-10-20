@@ -23,6 +23,14 @@ function sourceFiles(directory: string): string[] {
   return files;
 }
 
+/** Ignore comment-only lines so the guard's own documentation cannot trip it. */
+function stripCommentLines(source: string): string {
+  return source
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join("\n");
+}
+
 describe("TenantId brand", () => {
   // The brand is only as strong as its cast boundary. Named casts (`as TenantId`,
   // `as unknown as TenantId`) must live in the api-client factory (`tenantId(...)`);
@@ -42,7 +50,7 @@ describe("TenantId brand", () => {
         if (file === factoryFile) {
           continue;
         }
-        const source = readFileSync(file, "utf8");
+        const source = stripCommentLines(readFileSync(file, "utf8"));
         if (/\bas\s+(?:unknown\s+as\s+)?TenantId\b/.test(source)) {
           violations.push(relative(workspaceRoot, file));
         }
