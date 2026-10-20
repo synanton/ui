@@ -34,6 +34,15 @@ function problem(code: string, message: string, status: number): ApiClientError 
 }
 
 /**
+ * One code path for every tenant the caller may not select. There is
+ * deliberately no tenant-existence branch: unauthorized and non-existing
+ * tenants are indistinguishable by construction, not by test.
+ */
+function uniformTenantNotAvailable(): ApiClientError {
+  return problem("TENANT_NOT_AVAILABLE", "Tenant is not available", 404);
+}
+
+/**
  * Contract conformance double for ADR 0007. It encodes the full selection
  * matrix — including the uniform-404 anti-oracle row — and is replaced by the
  * real transport without changing the adapter.
@@ -52,8 +61,7 @@ export class ConformanceTenantIssuanceDouble implements TenantIssuanceTransport 
       throw problem("TENANT_ACCESS_DENIED", "Tenant access is no longer authorized", 403);
     }
     if (!this.options.authorizedTenantIds.includes(tenantId)) {
-      // Uniform for existing and non-existing tenant IDs: anti-oracle.
-      throw problem("TENANT_NOT_AVAILABLE", "Tenant is not available", 404);
+      throw uniformTenantNotAvailable();
     }
     return { token: `tenant-token:${tenantId}` };
   }

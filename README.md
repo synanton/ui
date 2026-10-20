@@ -192,19 +192,68 @@ The unified RAG flow is:
 
 ## Security
 
-Client authentication and authorization are part of the integration
-contract.
+Synanton UI is a client. It does not decide authorization; it carries a
+server-issued, tenant-bound access token and displays what the server
+returns. The shared model is in
+[platform docs/security/security-model.md](https://github.com/synanton/platform/blob/main/docs/security/security-model.md).
 
-The design includes:
+### Guarantees
 
--   JWT-based client sessions
--   Tenant-aware authorization
--   Classification metadata
--   Provenance-aware access
--   Backend-enforced authorization
+- **The tenant travels as a token claim, not a header or parameter.**
+  `ApiRequest` has no tenant field; `AuthAttachment` adds only
+  `Authorization`. `X-Tenant-ID` is rejected client-side
+  (`TENANT_HEADER_NOT_SUPPORTED`); `tenant_id` in the request body is
+  rejected (`TENANT_IN_REQUEST_BODY`). [ADR 0005, ADR 0007] — **Implemented**
+- **Tenant selection is server-validated and fail-closed.**
+  `TabSession.selectTenant(id)` targets `POST /v1/auth/tenant`; the server
+  validates against `authorizedTenantIds` and returns a tenant-bound token.
+  Selection outside the set is rejected uniformly (anti-oracle). [ADR 0007]
+  — **Design fixed**; contract acceptance runs against
+  `ConformanceTenantIssuanceDouble`.
+- **Per-tab token isolation.** Each tab holds its own tenant-bound token in
+  `sessionStorage`; tokens are not shared across tabs. Cross-tab
+  coordination is registered at session construction, before the first
+  request. [ADR 0006] — **Implemented** (dormant at N=1).
+- **Switch is a session lifecycle event.** Issue-first: a failed issuance
+  leaves the old tenant/token untouched (`TENANT_SWITCH_FAILED`); the
+  abort/transient state is only emitted after a successful switch
+  (`REQUEST_ABORTED`). Concurrent switches are rejected
+  (`SWITCH_IN_PROGRESS`). Revocation is asynchronous and never blocks the
+  switch. — **Implemented**
+- **Tenant identity is branded.** `TenantId` is a branded type; the only cast
+  lives inside `tenantId(...)`. A CI scan fails on `as TenantId` /
+  `as unknown as TenantId` outside that factory. A registry-coverage test
+  fails if any `AuthAttachment` implementation is unregistered. — **Implemented**
 
-The UI should never be treated as the security boundary. Authorization
-decisions remain enforced by the Synanton backend.
+### What UI does not own
+
+- Identity model (`authorizedTenantIds`) — Identity 1.29 [#341]
+- Token issuance and the tenant claim schema — security-provider [#340]
+- Request-time claim validation and data-layer enforcement — platform [#339]
+
+### Accepted risks (with revisit triggers)
+
+- **`sessionStorage` token XSS.** A stolen tenant-bound token reaches one
+  tenant at N=1 — equivalent to a stolen single-tenant session. **Revisit
+  before relaxing the membership policy to N>1**: migrate to in-memory
+  access + HttpOnly refresh (optionally behind a BFF). Do not relax the
+  policy without scheduling that migration. [ADR 0006]
+- **IdP multi-context unexercised.** Per-tab tenant contexts require the
+  identity provider to support multiple simultaneous contexts. Not exercised
+  at N=1. Verify before policy relaxation; tracked in #336.
+
+### Deferred
+
+- Client-side cache tenant prefixing — required before the tenant switcher
+  ships; not needed while there is no client cache and N=1.
+
+### References
+
+- [ADR 0002](docs/decisions/0002-api-contracts-and-browser-ingress.md) — browser ingress and generated contracts (Accepted)
+- [ADR 0005](docs/decisions/0005-tenant-identity-server-derived.md) — tenant identity is server-derived
+- [ADR 0006](docs/decisions/0006-session-bound-tenant-lock.md) — per-tab tenant-bound token model
+- [ADR 0007](docs/decisions/0007-tenant-token-claim.md) — token claim and error matrix (acceptance contract)
+- [UI inventory](docs/architecture/ui-inventory.md), [vertical slice trace](docs/architecture/ingestion-search-vertical-slice-trace.md)
 
 ## Development Phases
 
