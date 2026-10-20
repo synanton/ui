@@ -1,9 +1,10 @@
 {
   "name": "@synanton/ui-workspace",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@9.12.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "lint:boundaries": "node scripts/check-package-boundaries.mjs",
