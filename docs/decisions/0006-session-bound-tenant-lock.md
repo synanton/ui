@@ -65,7 +65,7 @@ The current security-provider is a validator/facade: it signs an internal HS256 
 - ADR 0005's invariant holds: no client-supplied tenant identity;
 - the accepted risk changes: no client-held tenant token (better against XSS), but server-side tab→tenant binding becomes state that must be isolated, revoked, and audited.
 
-`TabSession` keeps the same port surface (`currentTenant`, `selectTenant`); only the stored value changes from a token to a tab ID, so the swap test still holds.
+`TabSession` keeps the same port surface (`currentTenant`, `selectTenant`); only the stored value changes from a token to a tab ID, so the swap test still holds. **`currentTenant()` may become async or cached under the tab-ID branch; the port's sync contract is a token-model assumption.**
 
 ## Consequences
 
