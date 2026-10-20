@@ -4,6 +4,10 @@
  * This package is a leaf: no design tokens, UI components, shell, or app code.
  * A real generated client may replace the transport once ADR 0002 is accepted;
  * the envelope/error/auth/tenant shape here is what that client must satisfy.
+ *
+ * Tenant authority invariant: a request never carries a caller-supplied tenant.
+ * The client derives scope only from a `VerifiedIdentity` produced by the auth
+ * boundary; a missing identity is rejected before the transport is called.
  */
 
 export type ApiMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -20,23 +24,6 @@ export type ApiErrorCode =
   | "DEPENDENCY_UNAVAILABLE"
   | "OPERATION_FAILED"
   | "INTERNAL_ERROR";
-
-/** Verified session context. `tenantId` never comes from browser storage or a client header. */
-export interface RequestContext {
-  tenantId: string;
-  principalId: string;
-  correlationId?: string;
-}
-
-/** Transport-neutral request envelope. */
-export interface ApiRequest<TBody = unknown> {
-  method: ApiMethod;
-  /** Versioned platform path, e.g. "/v1/ingestion-runs". */
-  path: string;
-  body?: TBody;
-  idempotencyKey?: string;
-  signal?: AbortSignal;
-}
 
 export interface ApiResponse<T> {
   status: number;
@@ -69,19 +56,6 @@ export class ApiClientError extends Error {
   }
 }
 
-/** Attaches credentials at the transport boundary. Must not attach a client-supplied tenant header. */
-export interface AuthAttachment {
-  attach(headers: Record<string, string>): Record<string, string>;
-}
-
-export interface ApiTransport {
-  send<T>(request: ApiRequest, context: RequestContext): Promise<ApiResponse<T>>;
-}
-
-export interface ApiClient {
-  request<T>(request: ApiRequest): Promise<ApiResponse<T>>;
-}
-
 let fallbackRequestId = 0;
 
 export function newRequestId(): string {
@@ -91,6 +65,90 @@ export function newRequestId(): string {
   }
   fallbackRequestId += 1;
   return `client-${Date.now()}-${fallbackRequestId}`;
+}
+
+const verifiedIdentityBrand: unique symbol = Symbol("synanton.verifiedIdentity");
+
+/**
+ * Identity produced only by the auth/session boundary. The brand prevents a
+ * plain `{ tenantId, principalId }` object from being passed where a verified
+ * identity is required; use {@link verifiedIdentityFrom} at that boundary.
+ */
+export interface VerifiedIdentity {
+  readonly tenantId: string;
+  readonly principalId: string;
+  readonly correlationId?: string;
+  readonly [verifiedIdentityBrand]: true;
+}
+
+export interface IdentityInput {
+  tenantId: string;
+  principalId: string;
+  correlationId?: string;
+}
+
+export function verifiedIdentityFrom(input: IdentityInput): VerifiedIdentity {
+  if (!input || !input.tenantId || !input.tenantId.trim()
+      || !input.principalId || !input.principalId.trim()) {
+    throw new ApiClientError({
+      code: "AUTHENTICATION_REQUIRED",
+      message: "Verified tenant and principal are required",
+      retryable: false,
+      requestId: newRequestId()
+    });
+  }
+  return Object.freeze({
+    tenantId: input.tenantId,
+    principalId: input.principalId,
+    ...(input.correlationId ? { correlationId: input.correlationId } : {}),
+    [verifiedIdentityBrand]: true as const
+  }) as VerifiedIdentity;
+}
+
+/** Supplies the identity established by the auth boundary; never localStorage/sessionStorage. */
+export interface SessionIdentityProvider {
+  current(): VerifiedIdentity | null;
+}
+
+/** Transport-neutral request envelope. It has no tenant field by design. */
+export interface ApiRequest<TBody = unknown> {
+  method: ApiMethod;
+  /** Versioned platform path, e.g. "/v1/ingestion-runs". */
+  path: string;
+  body?: TBody;
+  idempotencyKey?: string;
+  /** Transport headers after auth attachment; never contains a tenant assertion. */
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
+/** Attaches credentials at the transport boundary. Must not attach a client-supplied tenant header. */
+export interface AuthAttachment {
+  attach(headers: Record<string, string>): Record<string, string>;
+}
+
+/** Bearer-only attachment: no `X-Tenant-ID` or other tenant assertion is ever added. */
+export class BearerAuthAttachment implements AuthAttachment {
+  constructor(private readonly token: () => string | null) {}
+
+  attach(headers: Record<string, string>): Record<string, string> {
+    const token = this.token();
+    return token ? { ...headers, Authorization: `Bearer ${token}` } : { ...headers };
+  }
+}
+
+export interface ApiTransport {
+  send<T>(request: ApiRequest, identity: VerifiedIdentity): Promise<ApiResponse<T>>;
+}
+
+export interface ApiClientOptions {
+  transport: ApiTransport;
+  session: SessionIdentityProvider;
+  auth: AuthAttachment;
+}
+
+export interface ApiClient {
+  request<T>(request: ApiRequest): Promise<ApiResponse<T>>;
 }
 
 export function toApiClientError(error: unknown): ApiClientError {
@@ -110,23 +168,21 @@ export function toApiClientError(error: unknown): ApiClientError {
 }
 
 export class ApiClientImpl implements ApiClient {
-  constructor(
-    private readonly transport: ApiTransport,
-    private readonly context: () => RequestContext
-  ) {}
+  constructor(private readonly options: ApiClientOptions) {}
 
   async request<T>(request: ApiRequest): Promise<ApiResponse<T>> {
-    const context = this.context();
-    if (!context || !context.tenantId || !context.tenantId.trim()) {
+    const identity = this.options.session.current();
+    if (!identity) {
       throw new ApiClientError({
         code: "AUTHENTICATION_REQUIRED",
-        message: "Verified tenant context is required",
+        message: "Verified identity is required",
         retryable: false,
         requestId: newRequestId()
       });
     }
+    const headers = this.options.auth.attach(request.headers ?? {});
     try {
-      return await this.transport.send<T>(request, context);
+      return await this.options.transport.send<T>({ ...request, headers }, identity);
     } catch (error) {
       throw toApiClientError(error);
     }
@@ -135,7 +191,7 @@ export class ApiClientImpl implements ApiClient {
 
 export type MockHandler = (
   request: ApiRequest,
-  context: RequestContext
+  identity: VerifiedIdentity
 ) => ApiResponse<unknown> | Promise<ApiResponse<unknown>>;
 
 /** In-memory transport for shell/app tests while the real ingress is undecided. */
@@ -147,7 +203,7 @@ export class MockApiTransport implements ApiTransport {
     return this;
   }
 
-  async send<T>(request: ApiRequest, context: RequestContext): Promise<ApiResponse<T>> {
+  async send<T>(request: ApiRequest, identity: VerifiedIdentity): Promise<ApiResponse<T>> {
     const route = this.routes.find(
       (candidate) => candidate.method === request.method && candidate.path === request.path
     );
@@ -159,14 +215,14 @@ export class MockApiTransport implements ApiTransport {
         requestId: newRequestId()
       });
     }
-    return (await route.handler(request, context)) as ApiResponse<T>;
+    return (await route.handler(request, identity)) as ApiResponse<T>;
   }
 }
 
-export function createMockApiClient(context: () => RequestContext): {
-  client: ApiClient;
-  transport: MockApiTransport;
-} {
+export function createMockApiClient(
+  session: SessionIdentityProvider,
+  auth: AuthAttachment = new BearerAuthAttachment(() => "mock-token")
+): { client: ApiClient; transport: MockApiTransport } {
   const transport = new MockApiTransport();
-  return { client: new ApiClientImpl(transport, context), transport };
+  return { client: new ApiClientImpl({ transport, session, auth }), transport };
 }

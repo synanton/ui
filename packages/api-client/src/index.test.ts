@@ -2,50 +2,67 @@ import { describe, expect, it } from "vitest";
 import {
   ApiClientError,
   ApiClientImpl,
+  BearerAuthAttachment,
   MockApiTransport,
   createMockApiClient,
   toApiClientError,
-  type RequestContext
+  verifiedIdentityFrom,
+  type SessionIdentityProvider,
+  type VerifiedIdentity
 } from "./index";
 
-const context: RequestContext = { tenantId: "tenant-a", principalId: "alice" };
+const identity = verifiedIdentityFrom({ tenantId: "tenant-a", principalId: "alice" });
+const session: SessionIdentityProvider = { current: () => identity };
+const auth = new BearerAuthAttachment(() => "token-1");
 
 describe("api-client", () => {
-  it("rejects missing verified tenant before the transport runs", async () => {
-    const transport = new MockApiTransport();
-    const client = new ApiClientImpl(transport, () => ({ tenantId: "  ", principalId: "alice" }));
+  it("rejects a missing verified identity at the envelope, before the transport", async () => {
+    let transportCalled = false;
+    const transport = new MockApiTransport().on("GET", "/v1/sources", () => {
+      transportCalled = true;
+      return { status: 200, data: [], requestId: "req-1" };
+    });
+    const client = new ApiClientImpl({ transport, session: { current: () => null }, auth });
 
     await expect(client.request({ method: "GET", path: "/v1/sources" })).rejects.toMatchObject({
       name: "ApiClientError",
       code: "AUTHENTICATION_REQUIRED",
       retryable: false
     });
+    expect(transportCalled).toBe(false);
   });
 
-  it("passes the envelope and verified context to the transport", async () => {
-    let seenContext: RequestContext | undefined;
-    let seenRequest: { idempotencyKey?: string } | undefined;
-    const transport = new MockApiTransport().on("POST", "/v1/ingestion-runs", (request, ctx) => {
+  it("rejects an unverified identity input at the auth boundary", () => {
+    expect(() => verifiedIdentityFrom({ tenantId: "  ", principalId: "alice" }))
+      .toThrow(ApiClientError);
+  });
+
+  it("derives tenant scope only from the verified identity, never from the request body", async () => {
+    let seenIdentity: VerifiedIdentity | undefined;
+    let seenRequest: { idempotencyKey?: string; headers?: Record<string, string> } | undefined;
+    const transport = new MockApiTransport().on("POST", "/v1/ingestion-runs", (request, verified) => {
       seenRequest = request;
-      seenContext = ctx;
+      seenIdentity = verified;
       return { status: 202, data: { run_id: "r1" }, requestId: "req-1" };
     });
-    const client = new ApiClientImpl(transport, () => context);
+    const client = new ApiClientImpl({ transport, session, auth });
 
     const response = await client.request({
       method: "POST",
       path: "/v1/ingestion-runs",
-      body: { source_id: "s" },
+      body: { source_id: "s", tenant_id: "tenant-b" },
       idempotencyKey: "k1"
     });
 
     expect(response).toEqual({ status: 202, data: { run_id: "r1" }, requestId: "req-1" });
-    expect(seenContext).toEqual(context);
+    expect(seenIdentity?.tenantId).toBe("tenant-a");
     expect(seenRequest?.idempotencyKey).toBe("k1");
+    expect(seenRequest?.headers?.Authorization).toBe("Bearer token-1");
+    expect(seenRequest?.headers?.["X-Tenant-ID"]).toBeUndefined();
   });
 
   it("mock transport routes requests and preserves idempotency keys", async () => {
-    const { client, transport } = createMockApiClient(() => context);
+    const { client, transport } = createMockApiClient(session);
     let key: string | undefined;
     transport.on("POST", "/v1/ingestion-runs", (request) => {
       key = request.idempotencyKey;
