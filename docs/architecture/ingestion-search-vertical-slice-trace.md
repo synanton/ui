@@ -60,7 +60,12 @@ The UI must show `PARTIAL`/quarantined outcomes explicitly (feature-state detail
 
 The demo's search assertions resolve `provenance_ref` and check `source_version_ids`/`content_cache_reference`. They do **not** assert a page number.
 
-The canonical `ChunkRow` carries `page_start`/`page_end`, and the legacy `POST /search` hit DTO exposes them; the frozen public `POST /v1/search` `SearchHitResource` and the provenance resource do **not**. Therefore a literal "page 40" provenance check cannot be satisfied through `/v1/search` + `/v1/knowledge/{object_id}/provenance` as currently specified.
+The canonical `ChunkRow` carries `page_start`/`page_end`, and the legacy `POST /search` hit DTO exposes them; the frozen public `POST /v1/search` `SearchHitResource` and the provenance resource do **not**.
+
+Current public field set:
+
+- hit: `object_id`, `score`, `title`, `snippet`, `provenance_ref`, `source_version_ids`
+- provenance: `content_ref_id`, `source_version_ids`, `content_cache_reference`, `source_uri`, `source_sha256`, `chunk_sha256`, `processing_run_id` Therefore a literal "page 40" provenance check cannot be satisfied through `/v1/search` + `/v1/knowledge/{object_id}/provenance` as currently specified.
 
 Options, in order:
 
@@ -69,18 +74,40 @@ Options, in order:
 
 The trace records this as an open contract item; it must not be silently "solved" in the UI by reading a non-public field. Tracked as [platform #338](https://github.com/synanton/platform/issues/338).
 
-## Stage 2 acceptance test
+## Stage 2 acceptance criteria
 
-Target (`/v1/...`):
+The slice is split into two independently passable criteria so the page-provenance gap does not block shell migration.
 
-1. With tenant A's JWT, create an `upload` source and multipart-upload one real PDF (`Content-Type: application/pdf`).
-2. Poll the operation to `SUCCEEDED` with `outcome: FULL`.
-3. Rebuild the projection; search a phrase from **page 40**.
-4. Assert a hit returns the document and `provenance_ref` resolves with the expected `source_version_ids` and `content_cache_reference`.
-5. Page-level check: either the public hit exposes `page_start <= 40 <= page_end` (option 1), or the acceptance records the legacy `/search` page fields as the interim evidence.
-6. With tenant B's JWT, the same query must not return tenant A's hit or resolve its provenance.
+### A — Shell migration (not blocked on #338)
 
-The shell migration passes when `/ingestion` and `/search` render this flow, all operation/run states above are representable, and the cross-tenant negative holds.
+1. With tenant A's session, `/ingestion` renders the traced create-source → submit-run → operation/run-status flow using the shared shell, navigation, status components, and error boundary.
+2. The operation/run states above are all representable; `PARTIAL`/quarantined outcomes are explicit, not collapsed into "failed".
+3. Tenant context is read from the single agreed convention (the `RequestContext` attachment point) — never browser storage or a client `X-Tenant-ID`, once #335 settles conveyance.
+4. The client consumes the transport-neutral `api-client` interface; its mock transport is used for the design-time run.
+5. With tenant B's session, the same query must not return tenant A's hit or resolve its provenance (behavior per #335).
+
+This criterion exercises the shell, the `api-client` shape, and the tenant-context point. It needs no page ranges.
+
+### B — Provenance fidelity (blocked on #338)
+
+1. The citation/provenance interaction surfaces exactly the evidence fields the platform exposes — the current set recorded above — with correlation/provenance identifiers preserved.
+2. Page ranges (`page_start`/`page_end`) are displayed only when the public contract provides them. Until #338 resolves, the test asserts the current field set and does **not** silently substitute a non-public field.
+3. When #338 lands, extend this criterion to assert `page_start <= 40 <= page_end` for the page-40 document.
+
+### Design-time vs integration-time
+
+Both criteria have two executable forms:
+
+- **Design-time:** route/contract/state mapping executed against `MockApiTransport` — no cluster required.
+- **Integration-time:** the same assertions against the running pipeline (`/v1/...` on synflux/synquest).
+
+Node1/cluster recovery is an **integration-time** dependency, not a Stage 2 design blocker. The design-time form is what lets shell migration proceed while #335/#336/#338 are open.
+
+### Stage 1 gaps (recorded, not blockers)
+
+- `design-tokens` has JSON/CSS conformance checks only; there are no token-level tests for light/dark resolution, contrast, or spacing-scale values. Accepted for Stage 1; revisit before screens are built.
+- `api-client` ships the shape and `MockApiTransport` only; the real generated client remains blocked by #336.
+
 
 ## Out of scope
 
