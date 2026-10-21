@@ -38,8 +38,8 @@ export function IngestionPage({ client }: { client: ApiClient }) {
       const created = await client.request<RunRef>({
         method: "POST",
         path: "/v1/ingestion-runs",
-        body: { source_id: "demo-source", resource_id: "books/sample.pdf" },
-        idempotencyKey: "demo-1"
+        body: { source_id: "sample-source", resource_id: "books/sample.pdf" },
+        idempotencyKey: "sample-1"
       });
       const operationView = await client.request<OperationView>({
         method: "GET",

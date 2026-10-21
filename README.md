@@ -225,6 +225,21 @@ returns. The shared model is in
   `as unknown as TenantId` outside that factory. A registry-coverage test
   fails if any `AuthAttachment` implementation is unregistered. — **Implemented**
 
+### Development authentication (placeholder)
+
+The Vite dev server mints a development token for `POST /v1/auth/login`.
+This is not a production path; it is replaced by the tenant-bound token
+issuance contract (RS256 + JWKS) in [#340].
+
+Configuration is server-side (`apps/web/.env`, see `.env.example`):
+`DEMO_AUTH_USER`, `DEMO_AUTH_PASSWORD`, `DEMO_AUTH_TENANT`, and
+`SYNANTON_JWT_SECRET`. If any is missing, the endpoint returns
+`503 DEMO_AUTH_NOT_CONFIGURED` and issues no token. The tenant in the token
+comes from `DEMO_AUTH_TENANT`, not from a code default.
+
+`VITE_DEMO_AUTH_USER` and `VITE_DEMO_AUTH_TENANT` may prefill the login form
+and are visible to the browser. The password is never a `VITE_*` value.
+
 ### What UI does not own
 
 - Identity model (`authorizedTenantIds`) — Identity 1.29 [#341]
