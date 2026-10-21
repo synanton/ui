@@ -1,6 +1,6 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "./App";
 import { LoginPage } from "./routes/LoginPage";
 
@@ -41,11 +41,18 @@ describe("web shell (A-pre)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() => expect(screen.getByText("Software Project Management")).toBeTruthy());
 
+    const title = screen.getByText("Software Project Management");
     fireEvent.click(screen.getByRole("button", { name: "Provenance" }));
     await waitFor(() => expect(screen.getByText("file:///books/sample.pdf")).toBeTruthy());
     expect(screen.getByText("abc")).toBeTruthy();
     expect(screen.getByText("p1")).toBeTruthy();
     expect(screen.getByText(/Page ranges are not exposed/)).toBeTruthy();
+
+    // The panel expands under the row, not at the bottom of the result list.
+    const row = title.closest("li");
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText("file:///books/sample.pdf")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide provenance" })).toBeTruthy();
   });
 
   it("does not leak tenant A results to tenant B", async () => {
