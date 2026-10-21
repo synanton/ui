@@ -9,10 +9,6 @@ if (!root) {
 const real = import.meta.env.VITE_REAL_API === "true";
 createRoot(root).render(
   <React.StrictMode>
-    <App
-      initialPath={real ? "/search" : "/ingestion"}
-      real={real}
-      apiBase={import.meta.env.VITE_API_BASE ?? ""}
-    />
+    <App real={real} apiBase={import.meta.env.VITE_API_BASE ?? ""} />
   </React.StrictMode>
 );

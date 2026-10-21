@@ -24,6 +24,7 @@ import { SearchPage } from "./routes/SearchPage";
 const TOKEN_KEY = "synanton.accessToken";
 
 export interface AppProps {
+  /** Test override; production derives the path from the browser URL. */
   initialPath?: string;
   tenantId?: string;
   /** Real transport mode: real `/v1` client + login page. Defaults to the mock shell for tests. */
@@ -31,7 +32,15 @@ export interface AppProps {
   apiBase?: string;
 }
 
-export function App({ initialPath = "/ingestion", tenantId, real = false, apiBase = "" }: AppProps) {
+function browserPath(fallback: string): string {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  const path = window.location.pathname;
+  return path === "/search" || path === "/ingestion" ? path : fallback;
+}
+
+export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppProps) {
   const [token, setToken] = React.useState<string | null>(() => {
     if (typeof sessionStorage === "undefined") {
       return null;
@@ -45,7 +54,12 @@ export function App({ initialPath = "/ingestion", tenantId, real = false, apiBas
   const effectiveTenant = tenantId ?? configuredTenant;
   const principalId = real ? claims.subject ?? devAuthConfig.user : "alice";
 
-  const path = real && initialPath === "/ingestion" ? "/search" : initialPath;
+  const requestedPath = initialPath ?? browserPath(real ? "/search" : "/ingestion");
+  // The real transport is search-only; keep the old redirect, but otherwise
+  // honor the browser URL so /search never renders Ingestion.
+  const path = real && (requestedPath === "/ingestion" || requestedPath === "/")
+    ? "/search"
+    : requestedPath;
   const navItems = real
     ? [{ id: "search", label: "Search", href: "/search" }]
     : [

@@ -12,9 +12,18 @@ function jwt(payload: Record<string, unknown>): string {
 
 beforeEach(() => {
   sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
 });
 
 describe("web shell (A-pre)", () => {
+  it("routes from the browser URL when no initialPath is provided", () => {
+    window.history.pushState({}, "", "/search");
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: "Search" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.queryByRole("heading", { name: "Ingestion" })).toBeNull();
+  });
+
   it("renders the ingestion route and the operation/run states", async () => {
     render(<App initialPath="/ingestion" />);
 
