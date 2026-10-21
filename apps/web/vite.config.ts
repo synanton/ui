@@ -173,13 +173,17 @@ export default defineConfig(({ mode }) => {
   const fileEnv = loadEnv(mode, process.cwd(), "") as Record<string, string>;
   const config = resolveAuthConfig({ ...process.env, ...fileEnv });
   const synquest = fileEnv.VITE_SYNQUEST_URL || "http://192.168.10.32:30083";
+  const synflux = fileEnv.VITE_SYNFLUX_URL || "http://192.168.10.32:30090";
   return {
     plugins: [devAuth(config)],
     server: {
       port: 5173,
       proxy: {
         "/v1/search": { target: synquest, changeOrigin: true },
-        "/v1/knowledge": { target: synquest, changeOrigin: true }
+        "/v1/knowledge": { target: synquest, changeOrigin: true },
+        "/v1/ingestion-runs": { target: synflux, changeOrigin: true },
+        "/v1/sources": { target: synflux, changeOrigin: true },
+        "/v1/operations": { target: synflux, changeOrigin: true }
       }
     }
   };
