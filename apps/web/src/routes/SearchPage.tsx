@@ -92,7 +92,9 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
             <dt>content ref</dt><dd>{provenance.content_ref_id}</dd>
             <dt>source versions</dt><dd>{provenance.source_version_ids.join(", ")}</dd>
             <dt>content cache ref</dt><dd>{provenance.content_cache_reference}</dd>
+            <dt>source sha256</dt><dd>{provenance.source_sha256}</dd>
             <dt>chunk sha256</dt><dd>{provenance.chunk_sha256}</dd>
+            <dt>processing run</dt><dd>{provenance.processing_run_id}</dd>
           </dl>
           <p>Page ranges are not exposed by the public `/v1` contract yet (#338).</p>
         </section>

@@ -34,6 +34,8 @@ describe("web shell (A-pre)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Provenance" }));
     await waitFor(() => expect(screen.getByText("file:///books/sample.pdf")).toBeTruthy());
+    expect(screen.getByText("abc")).toBeTruthy();
+    expect(screen.getByText("p1")).toBeTruthy();
     expect(screen.getByText(/Page ranges are not exposed/)).toBeTruthy();
   });
 
