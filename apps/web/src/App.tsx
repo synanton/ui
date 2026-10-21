@@ -1,5 +1,10 @@
 import * as React from "react";
-import { tenantId as brandTenantId, verifiedIdentityFrom } from "@synanton/api-client";
+import {
+  BearerAuthAttachment,
+  createRealApiClient,
+  tenantId as brandTenantId,
+  verifiedIdentityFrom
+} from "@synanton/api-client";
 import { SessionStorageTokenStore, TabSession } from "@synanton/api-client/tab-session";
 import {
   AppShell,
@@ -8,39 +13,107 @@ import {
   TabTenantContextProvider,
   TenantContextProvider
 } from "@synanton/app-shell";
-import { createMockPlatform } from "./mock/mockPlatform";
+import { createMockPlatform, MOCK_TENANT_ID } from "./mock/mockPlatform";
+import { devAuthConfig } from "./real/authConfig";
+import { login } from "./real/login";
+import { tokenClaims } from "./real/tokenClaims";
 import { IngestionPage } from "./routes/IngestionPage";
+import { LoginPage } from "./routes/LoginPage";
 import { SearchPage } from "./routes/SearchPage";
 
-const navItems = [
-  { id: "ingestion", label: "Ingestion", href: "/ingestion" },
-  { id: "search", label: "Search", href: "/search" }
-];
+const TOKEN_KEY = "synanton.accessToken";
 
 export interface AppProps {
   initialPath?: string;
   tenantId?: string;
+  /** Real transport mode: real `/v1` client + login page. Defaults to the mock shell for tests. */
+  real?: boolean;
+  apiBase?: string;
 }
 
-/** A-pre scaffold: shared shell + traced routes, backed by mocks. */
-export function App({ initialPath = "/ingestion", tenantId = "demo" }: AppProps) {
-  const path = initialPath;
+export function App({ initialPath = "/ingestion", tenantId, real = false, apiBase = "" }: AppProps) {
+  const [token, setToken] = React.useState<string | null>(() => {
+    if (typeof sessionStorage === "undefined") {
+      return null;
+    }
+    return sessionStorage.getItem(TOKEN_KEY);
+  });
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+
+  const claims = React.useMemo(() => tokenClaims(token), [token]);
+  const configuredTenant = real ? claims.tenantId ?? devAuthConfig.tenant : MOCK_TENANT_ID;
+  const effectiveTenant = tenantId ?? configuredTenant;
+  const principalId = real ? claims.subject ?? devAuthConfig.user : "alice";
+
+  const path = real && initialPath === "/ingestion" ? "/search" : initialPath;
+  const navItems = real
+    ? [{ id: "search", label: "Search", href: "/search" }]
+    : [
+        { id: "ingestion", label: "Ingestion", href: "/ingestion" },
+        { id: "search", label: "Search", href: "/search" }
+      ];
+
   const runtime = React.useMemo(() => {
-    const locked = brandTenantId(tenantId);
+    if (!effectiveTenant || (real && !principalId)) {
+      return null;
+    }
+    const locked = brandTenantId(effectiveTenant);
     const session = new TabSession({
-      identity: verifiedIdentityFrom({ tenantId: locked, principalId: "alice" }),
-      store: new SessionStorageTokenStore("synanton.accessToken"),
-      issueToken: async (next) => `mock-token-${next}`,
+      identity: verifiedIdentityFrom({ tenantId: locked, principalId }),
+      store: new SessionStorageTokenStore(TOKEN_KEY),
+      issueToken: real
+        ? async () => {
+            const current = typeof sessionStorage === "undefined" ? null : sessionStorage.getItem(TOKEN_KEY);
+            if (!current) {
+              throw new Error("No access token is available");
+            }
+            return current;
+          }
+        : async (next) => `mock-token-${next}`,
       channelName: "synanton-tenant"
     });
     return {
       session,
-      platform: createMockPlatform(session),
+      client: real
+        ? createRealApiClient(
+            session,
+            new BearerAuthAttachment(() => session.currentToken()),
+            apiBase,
+            () => session.signal()
+          )
+        : createMockPlatform(session).client,
       tenant: new TabTenantContextProvider(session)
     };
-  }, [tenantId]);
+  }, [effectiveTenant, principalId, real, apiBase, token]);
 
-  React.useEffect(() => () => runtime.session.close(), [runtime]);
+  React.useEffect(() => () => runtime?.session.close(), [runtime]);
+
+  async function handleLogin(username: string, password: string) {
+    setLoginError(null);
+    try {
+      const result = await login(apiBase, username, password);
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(TOKEN_KEY, result.token);
+      }
+      setToken(result.token);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Login failed");
+    }
+  }
+
+  if (real && !token) {
+    return <LoginPage onLogin={handleLogin} error={loginError} initialUsername={devAuthConfig.user} />;
+  }
+
+  if (!runtime) {
+    return (
+      <LoginPage
+        onLogin={handleLogin}
+        error={loginError ?? "Authentication is not configured. Set DEMO_AUTH_* on the dev server."}
+        initialUsername={devAuthConfig.user}
+      />
+    );
+  }
 
   return (
     <TenantContextProvider value={runtime.tenant}>
@@ -50,11 +123,16 @@ export function App({ initialPath = "/ingestion", tenantId = "demo" }: AppProps)
             productName="Synanton"
             navItems={navItems}
             activeHref={path}
-            capabilities={["ingestion", "search"]}
+            capabilities={real ? ["search"] : ["ingestion", "search"]}
           >
             {path === "/search"
-              ? <SearchPage client={runtime.platform.client} />
-              : <IngestionPage client={runtime.platform.client} />}
+              ? (
+                <SearchPage
+                  client={runtime.client}
+                  initialQuery={real ? "linear algebra and calculus" : undefined}
+                />
+              )
+              : <IngestionPage client={runtime.client} />}
           </AppShell>
         </ErrorBoundary>
       </AuthBoundary>

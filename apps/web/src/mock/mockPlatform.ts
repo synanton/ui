@@ -5,6 +5,9 @@ import {
 } from "@synanton/api-client";
 import type { TabSession } from "@synanton/api-client/tab-session";
 
+/** Fixture tenant for the mock shell; not a login credential or fallback. */
+export const MOCK_TENANT_ID = "mock-tenant";
+
 export interface MockPlatform {
   client: ApiClient;
 }
@@ -27,7 +30,7 @@ interface SearchFixture {
 // not from the absence of fixtures for every tenant.
 const searchFixtures: SearchFixture[] = [
   {
-    tenantId: "demo",
+    tenantId: MOCK_TENANT_ID,
     hit: {
       object_id: "ref-1:0",
       title: "Software Project Management",
@@ -78,7 +81,7 @@ export function createMockPlatform(session: TabSession): MockPlatform {
       object_id: "ref-1:0",
       content_ref_id: "ref-1",
       source_version_ids: ["v1"],
-      content_cache_reference: "v1:tenant_id=demo&artifact_id=a1&digest=sha256%3Aabc",
+      content_cache_reference: `v1:tenant_id=${MOCK_TENANT_ID}&artifact_id=a1&digest=sha256%3Aabc`,
       source_uri: "file:///books/sample.pdf",
       source_sha256: "abc",
       chunk_sha256: "def",

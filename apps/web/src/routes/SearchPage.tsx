@@ -24,8 +24,8 @@ interface Provenance {
   processing_run_id: string;
 }
 
-export function SearchPage({ client }: { client: ApiClient }) {
-  const [query, setQuery] = React.useState("When the map and the terrain disagree");
+export function SearchPage({ client, initialQuery = "When the map and the terrain disagree" }: { client: ApiClient; initialQuery?: string }) {
+  const [query, setQuery] = React.useState(initialQuery);
   const [hits, setHits] = React.useState<Hit[] | null>(null);
   const [provenance, setProvenance] = React.useState<Provenance | null>(null);
   const [error, setError] = React.useState<string | null>(null);

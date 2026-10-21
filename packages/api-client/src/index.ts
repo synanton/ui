@@ -342,3 +342,16 @@ export function createMockApiClient(
   const transport = new MockApiTransport();
   return { client: new ApiClientImpl({ transport, session, auth, signal }), transport };
 }
+
+import { RealApiTransport } from "./realTransport";
+export { RealApiTransport } from "./realTransport";
+
+/** Real `/v1` client. Auth is attached by `ApiClientImpl`; the transport adds nothing. */
+export function createRealApiClient(
+  session: SessionIdentityProvider,
+  auth: AuthAttachment,
+  baseUrl = "",
+  signal?: () => AbortSignal
+): ApiClient {
+  return new ApiClientImpl({ transport: new RealApiTransport(baseUrl), session, auth, signal });
+}
