@@ -61,6 +61,12 @@ describe("web shell (A-pre)", () => {
     expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe("");
   });
 
+  it("falls back to login when the stored token is invalid", () => {
+    sessionStorage.setItem("synanton.accessToken", "not-a-jwt");
+    render(<App initialPath="/search" real apiBase="" />);
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
+  });
+
   it("renders the real search shell with the P0 query when a token is present", () => {
     sessionStorage.setItem(
       "synanton.accessToken",
