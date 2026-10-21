@@ -59,6 +59,28 @@ describe("RealApiTransport", () => {
       });
   });
 
+  it("maps a platform 403 to AUTHORIZATION_DENIED", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      jsonResponse({ status: 403, code: "ERR_FORBIDDEN", detail: "Not allowed" }, 403)));
+    const transport = new RealApiTransport("http://api.example");
+
+    await expect(transport.send({ method: "POST", path: "/v1/search", body: { query: "x" } }, identity))
+      .rejects.toMatchObject({
+        problem: { code: "AUTHORIZATION_DENIED", message: "Not allowed", retryable: false }
+      });
+  });
+
+  it("passes TENANT_HEADER_NOT_SUPPORTED through for the UI message", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      jsonResponse({ status: 400, code: "TENANT_HEADER_NOT_SUPPORTED", detail: "Tenant header is not supported" }, 400)));
+    const transport = new RealApiTransport("http://api.example");
+
+    await expect(transport.send({ method: "POST", path: "/v1/search", body: { query: "x" } }, identity))
+      .rejects.toMatchObject({
+        problem: { code: "TENANT_HEADER_NOT_SUPPORTED", message: "Tenant header is not supported" }
+      });
+  });
+
   it("maps an empty 503 to a retryable DEPENDENCY_UNAVAILABLE", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
     const transport = new RealApiTransport("http://api.example");
