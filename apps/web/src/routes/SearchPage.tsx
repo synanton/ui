@@ -27,7 +27,11 @@ interface Provenance {
 export function SearchPage({ client, initialQuery = "When the map and the terrain disagree" }: { client: ApiClient; initialQuery?: string }) {
   const [query, setQuery] = React.useState(initialQuery);
   const [hits, setHits] = React.useState<Hit[] | null>(null);
+  const [openProvenanceId, setOpenProvenanceId] = React.useState<string | null>(null);
   const [provenance, setProvenance] = React.useState<Provenance | null>(null);
+  const [provenanceError, setProvenanceError] = React.useState<string | null>(null);
+  const [provenanceLoading, setProvenanceLoading] = React.useState(false);
+  const provenanceRequest = React.useRef(0);
   const [error, setError] = React.useState<string | null>(null);
   const [transient, setTransient] = React.useState<string | null>(null);
 
@@ -42,6 +46,9 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
         body: { query }
       });
       setHits(response.data.results);
+      setOpenProvenanceId(null);
+      setProvenance(null);
+      setProvenanceError(null);
     } catch (failure) {
       if (failure instanceof ApiClientError && failure.code === "REQUEST_ABORTED") {
         setTransient("Tenant changed; the in-flight request was cancelled.");
@@ -52,11 +59,39 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
   }
 
   async function openProvenance(hit: Hit) {
-    const response = await client.request<Provenance>({
-      method: "GET",
-      path: hit.provenance_ref
-    });
-    setProvenance(response.data);
+    if (openProvenanceId === hit.object_id) {
+      provenanceRequest.current += 1;
+      setOpenProvenanceId(null);
+      setProvenance(null);
+      setProvenanceError(null);
+      setProvenanceLoading(false);
+      return;
+    }
+
+    const request = ++provenanceRequest.current;
+    setOpenProvenanceId(hit.object_id);
+    setProvenance(null);
+    setProvenanceError(null);
+    setProvenanceLoading(true);
+    try {
+      const response = await client.request<Provenance>({
+        method: "GET",
+        path: hit.provenance_ref
+      });
+      if (request !== provenanceRequest.current) {
+        return;
+      }
+      setProvenance(response.data);
+    } catch (failure) {
+      if (request !== provenanceRequest.current) {
+        return;
+      }
+      setProvenanceError(failure instanceof Error ? failure.message : "Provenance failed");
+    } finally {
+      if (request === provenanceRequest.current) {
+        setProvenanceLoading(false);
+      }
+    }
   }
 
   return (
@@ -74,31 +109,43 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
           ? <p>No results.</p>
           : (
             <ul>
-              {hits.map((hit) => (
-                <li key={hit.object_id}>
-                  <h2>{hit.title}</h2>
-                  <p>{hit.snippet}</p>
-                  <Button onClick={() => openProvenance(hit)}>Provenance</Button>
-                </li>
-              ))}
+              {hits.map((hit) => {
+                const open = openProvenanceId === hit.object_id;
+                return (
+                  <li key={hit.object_id}>
+                    <h2>{hit.title}</h2>
+                    <p>{hit.snippet}</p>
+                    <Button
+                      aria-expanded={open}
+                      onClick={() => openProvenance(hit)}
+                    >
+                      {open ? "Hide provenance" : "Provenance"}
+                    </Button>
+                    {open ? (
+                      <section aria-label={`Provenance for ${hit.title}`}>
+                        <h3>Provenance</h3>
+                        {provenanceLoading ? <p role="status">Loading provenance…</p> : null}
+                        {provenanceError ? <p role="alert">{provenanceError}</p> : null}
+                        {provenance ? (
+                          <dl>
+                            <dt>source</dt><dd>{provenance.source_uri}</dd>
+                            <dt>content ref</dt><dd>{provenance.content_ref_id}</dd>
+                            <dt>source versions</dt><dd>{provenance.source_version_ids.join(", ")}</dd>
+                            <dt>content cache ref</dt><dd>{provenance.content_cache_reference}</dd>
+                            <dt>source sha256</dt><dd>{provenance.source_sha256}</dd>
+                            <dt>chunk sha256</dt><dd>{provenance.chunk_sha256}</dd>
+                            <dt>processing run</dt><dd>{provenance.processing_run_id}</dd>
+                          </dl>
+                        ) : null}
+                        <p>Page ranges are not exposed by the public `/v1` contract yet (#338).</p>
+                      </section>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )
         : null}
-      {provenance ? (
-        <section aria-label="Provenance">
-          <h2>Provenance</h2>
-          <dl>
-            <dt>source</dt><dd>{provenance.source_uri}</dd>
-            <dt>content ref</dt><dd>{provenance.content_ref_id}</dd>
-            <dt>source versions</dt><dd>{provenance.source_version_ids.join(", ")}</dd>
-            <dt>content cache ref</dt><dd>{provenance.content_cache_reference}</dd>
-            <dt>source sha256</dt><dd>{provenance.source_sha256}</dd>
-            <dt>chunk sha256</dt><dd>{provenance.chunk_sha256}</dd>
-            <dt>processing run</dt><dd>{provenance.processing_run_id}</dd>
-          </dl>
-          <p>Page ranges are not exposed by the public `/v1` contract yet (#338).</p>
-        </section>
-      ) : null}
     </Surface>
   );
 }
