@@ -83,6 +83,16 @@ describe("web shell (A-pre)", () => {
     expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
   });
 
+  it("renders the real upload page on /ingestion", () => {
+    sessionStorage.setItem(
+      "synanton.accessToken",
+      jwt({ sub: "alice", tenant_id: "tenant-a", exp: Math.floor(Date.now() / 1000) + 3600 })
+    );
+    render(<App initialPath="/ingestion" real apiBase="" />);
+    expect(screen.getByRole("heading", { name: "Ingestion" })).toBeTruthy();
+    expect(screen.getByLabelText("Upload files")).toBeTruthy();
+  });
+
   it("renders the real search shell with the P0 query when a token is present", () => {
     sessionStorage.setItem(
       "synanton.accessToken",
@@ -91,6 +101,6 @@ describe("web shell (A-pre)", () => {
     render(<App initialPath="/search" real apiBase="" />);
     expect(screen.getByRole("heading", { name: "Search" })).toBeTruthy();
     expect((screen.getByLabelText("Query") as HTMLInputElement).value).toBe("linear algebra and calculus");
-    expect(screen.queryByRole("link", { name: "Ingestion" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Ingestion" })).toBeTruthy();
   });
 });
