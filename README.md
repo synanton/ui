@@ -13,6 +13,27 @@ Both clients are designed as thin presentation layers over the `synapt`
 public ingress API and consume contract-generated REST/gRPC/protobuf
 models from the Synanton platform.
 
+> **Runnable Demo (Phase 1, 2026-10-21).** The Vite/React app in `apps/web`
+> talks to the real cluster through `RealApiTransport`; it is no longer a
+> mock-only shell. Walkthrough:
+> [docs/demo/demo-script.md](https://github.com/synanton/platform/blob/main/docs/demo/demo-script.md).
+
+## Phase 1 demo capabilities
+
+- **Search:** BM25 `POST /v1/search`; results with row-expanded provenance
+  (source/chunk SHA-256, source versions, processing run).
+- **Ingestion:** **Upload files** / **Upload folder** on the Ingestion tab:
+  sequential multipart upload with progress, idempotent source registration, and
+  operation polling. The Lucentrix CLI remains an alternative path.
+- **Real transport:** `VITE_REAL_API=true`; Vite proxies `/v1/search` and
+  `/v1/knowledge` to synquest, and `/v1/sources`, `/v1/ingestion-runs`,
+  `/v1/operations` to synflux.
+- **Not included:** original-file download. The download endpoint/UI was stopped
+  before merge for a security and contract review; there is no Download button
+  on `main`.
+- **Known gaps:** page ranges absent (#338); demo auth is a `DEMO_AUTH_*`
+  placeholder (#340); the vector leg waits on gpu-runtime #23 (2026-10-31).
+
 ## Why Synanton UI?
 
 Synanton combines:
@@ -313,12 +334,10 @@ schemas.
 
 ## Current Status
 
-**Design / architecture proposal**
-
-The project is ready for implementation planning. The main decisions
-still to be finalized are the API contract boundary, protobuf generation
-workflow, web/mobile authentication flow, and the initial MVP component
-set.
+**Runnable demo (Phase 1).** See the Phase 1 section above. The broader
+Next.js/mobile descriptions in this README document the longer-term product;
+the demo client is the Vite/React application in `apps/web`. The vector leg is
+pending the gpu-runtime #23 decision (2026-10-31).
 
 ## Related Synanton Components
 
