@@ -23,6 +23,18 @@ export interface LoginResponse {
   body: Record<string, unknown>;
 }
 
+/**
+ * Development authentication seam. A real issuer (#340) implements this
+ * interface with a tenant-bound RS256/JWKS exchange; the Vite middleware and
+ * the browser login call stay unchanged.
+ */
+export interface AuthProvider {
+  /** Required configuration names that are absent/blank. */
+  missing(): string[];
+  /** Pure request handling: JSON body in, status/body out. */
+  login(raw: string): LoginResponse;
+}
+
 const REQUIRED_ENV = [
   "DEMO_AUTH_USER",
   "DEMO_AUTH_PASSWORD",
@@ -100,48 +112,66 @@ export function resolveAuthConfig(env: Record<string, string | undefined>): DevA
   };
 }
 
-/** Pure request handling used by the dev middleware and by tests. */
-export function authenticate(config: DevAuthConfig, raw: string): LoginResponse {
-  const missing = missingEnv(config);
-  if (missing.length > 0) {
+class DevAuthProvider implements AuthProvider {
+  constructor(private readonly config: DevAuthConfig) {}
+
+  missing(): string[] {
+    return missingEnv(this.config);
+  }
+
+  login(raw: string): LoginResponse {
+    const missing = this.missing();
+    if (missing.length > 0) {
+      return {
+        status: 503,
+        body: {
+          code: "DEMO_AUTH_NOT_CONFIGURED",
+          message: `Demo authentication is not configured: ${missing.join(", ")}`
+        }
+      };
+    }
+    let body: { username?: string; password?: string };
+    try {
+      body = JSON.parse(raw || "{}") as { username?: string; password?: string };
+    } catch {
+      return {
+        status: 400,
+        body: { code: "VALIDATION_ERROR", message: "Login body must be JSON" }
+      };
+    }
+    if (body.username !== this.config.user || body.password !== this.config.password) {
+      return {
+        status: 401,
+        body: { code: "AUTHENTICATION_REQUIRED", message: "Invalid demo credentials" }
+      };
+    }
     return {
-      status: 503,
+      status: 200,
       body: {
-        code: "DEMO_AUTH_NOT_CONFIGURED",
-        message: `Demo authentication is not configured: ${missing.join(", ")}`
+        token: mintToken(this.config, this.config.user),
+        expiresIn: 3600
       }
     };
   }
-  let body: { username?: string; password?: string };
-  try {
-    body = JSON.parse(raw || "{}") as { username?: string; password?: string };
-  } catch {
-    return {
-      status: 400,
-      body: { code: "VALIDATION_ERROR", message: "Login body must be JSON" }
-    };
-  }
-  if (body.username !== config.user || body.password !== config.password) {
-    return {
-      status: 401,
-      body: { code: "AUTHENTICATION_REQUIRED", message: "Invalid demo credentials" }
-    };
-  }
-  return {
-    status: 200,
-    body: {
-      token: mintToken(config, config.user),
-      expiresIn: 3600
-    }
-  };
+}
+
+/** The only construction point for the dev provider; #340 supplies a sibling. */
+export function createAuthProvider(config: DevAuthConfig): AuthProvider {
+  return new DevAuthProvider(config);
+}
+
+/** Compatibility wrapper for the pure handler and existing tests. */
+export function authenticate(config: DevAuthConfig, raw: string): LoginResponse {
+  return createAuthProvider(config).login(raw);
 }
 
 /** Development login minted by the Vite dev server; the signing secret never reaches the browser. */
 function devAuth(config: DevAuthConfig): Plugin {
+  const provider = createAuthProvider(config);
   return {
     name: "synanton-dev-auth",
     configureServer(server) {
-      const missing = missingEnv(config);
+      const missing = provider.missing();
       if (missing.length > 0) {
         server.config.logger.warn(
           `Demo authentication is not configured (${missing.join(", ")}); ` +
@@ -159,7 +189,7 @@ function devAuth(config: DevAuthConfig): Plugin {
           raw += chunk.toString("utf8");
         });
         req.on("end", () => {
-          const response = authenticate(config, raw);
+          const response = provider.login(raw);
           res.setHeader("Content-Type", "application/json");
           res.statusCode = response.status;
           res.end(JSON.stringify(response.body));

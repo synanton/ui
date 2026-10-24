@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authenticate, resolveAuthConfig } from "../../vite.config";
+import { authenticate, createAuthProvider, resolveAuthConfig } from "../../vite.config";
 
 function payloadOf(token: string): Record<string, unknown> {
   const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -14,6 +14,14 @@ const configured = resolveAuthConfig({
 });
 
 describe("development login", () => {
+  it("exposes the dev auth seam through AuthProvider", () => {
+    const provider = createAuthProvider(configured);
+    expect(provider.missing()).toEqual([]);
+    const response = provider.login('{"username":"alice","password":"secret"}');
+    expect(response.status).toBe(200);
+    expect(payloadOf(response.body.token as string).tenant_id).toBe("tenant-a");
+  });
+
   it("fails closed with 503 when any required config is missing", () => {
     const response = authenticate(resolveAuthConfig({}), '{"username":"","password":""}');
 

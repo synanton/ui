@@ -5,7 +5,8 @@ export interface LoginResult {
 
 /**
  * Development-only login against the Vite dev-server placeholder.
- * Replaced by POST /v1/auth/tenant (RS256 + JWKS, #340) with no client change.
+ * The server handler implements `AuthProvider`; the real replacement is
+ * POST /v1/auth/tenant (RS256 + JWKS, #340) with no client change.
  * A 503 DEMO_AUTH_NOT_CONFIGURED means the server is missing DEMO_AUTH_* config.
  */
 export async function login(
