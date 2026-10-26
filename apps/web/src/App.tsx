@@ -169,10 +169,10 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
     });
   }
 
-  async function handleLogin(username: string, password: string) {
+  async function handleLogin(username: string) {
     setLoginError(null);
     try {
-      const result = await login(apiBase, username, password);
+      const result = await login(apiBase, username, devAuthConfig.tenant);
       if (typeof sessionStorage !== "undefined") {
         sessionStorage.setItem(TOKEN_KEY, result.token);
       }

@@ -2,7 +2,7 @@ import * as React from "react";
 import { Button, Surface } from "@synanton/ui-primitives";
 
 export interface LoginPageProps {
-  onLogin: (username: string, password: string) => Promise<void>;
+  onLogin: (username: string) => Promise<void>;
   error?: string | null;
   /** Client-side prefill hint from VITE_DEMO_AUTH_USER; never a password. */
   initialUsername?: string;
@@ -10,14 +10,13 @@ export interface LoginPageProps {
 
 export function LoginPage({ onLogin, error = null, initialUsername = "" }: LoginPageProps) {
   const [username, setUsername] = React.useState(initialUsername);
-  const [password, setPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
     try {
-      await onLogin(username, password);
+      await onLogin(username);
     } finally {
       setBusy(false);
     }
@@ -30,9 +29,6 @@ export function LoginPage({ onLogin, error = null, initialUsername = "" }: Login
         <label htmlFor="username">Username</label>
         <input id="username" value={username} autoComplete="username"
           onChange={(event) => setUsername(event.target.value)} />
-        <label htmlFor="password">Password</label>
-        <input id="password" type="password" value={password} autoComplete="current-password"
-          onChange={(event) => setPassword(event.target.value)} />
         <Button type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
       </form>
       {error ? <p role="alert">{error}</p> : null}

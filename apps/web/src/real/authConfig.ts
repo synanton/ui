@@ -10,8 +10,8 @@ function read(value: unknown): string {
 const env = import.meta.env as Record<string, string | undefined>;
 
 /**
- * Client-visible development prefill. These are presentation hints only; the
- * Vite dev server owns the credentials and the tenant written into the token.
+ * Client-visible demo prefill. These are presentation hints only; the platform
+ * `POST /v1/auth/tenant` endpoint owns token minting and the authoritative tenant.
  */
 export const devAuthConfig: DevAuthConfig = {
   user: read(env.VITE_DEMO_AUTH_USER),

@@ -1,24 +1,29 @@
 export interface LoginResult {
   token: string;
-  expiresIn: number;
+  expires_at?: number;
+  tenant_id?: string;
+  capabilities?: string[];
 }
 
 /**
- * Development-only login against the Vite dev-server placeholder.
- * The server handler implements `AuthProvider`; the real replacement is
- * POST /v1/auth/tenant (RS256 + JWKS, #340) with no client change.
- * A 503 DEMO_AUTH_NOT_CONFIGURED means the server is missing DEMO_AUTH_* config.
+ * Demo login against the platform issuer. The Vite dev-auth minting path is
+ * intentionally gone; `tenant_id` is the configured demo tenant hint, and the
+ * server returns the authoritative token.
  */
 export async function login(
   apiBase: string,
-  username: string,
-  password: string
+  principalId: string,
+  tenantId: string
 ): Promise<LoginResult> {
   const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
-  const response = await fetch(`${base}/v1/auth/login`, {
+  const response = await fetch(`${base}/v1/auth/tenant`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({
+      principal_id: principalId,
+      tenant_id: tenantId,
+      capabilities: []
+    })
   });
   const text = await response.text();
   let body: unknown;

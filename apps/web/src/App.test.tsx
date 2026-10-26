@@ -68,13 +68,12 @@ describe("web shell (A-pre)", () => {
   it("renders the login when the real transport has no token", () => {
     render(<App initialPath="/search" real apiBase="" />);
     expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
-    expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe("");
+    expect(screen.getByLabelText("Username")).toBeTruthy();
   });
 
   it("prefills only the username from configuration", () => {
     render(<LoginPage onLogin={async () => {}} initialUsername="alice" />);
     expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe("alice");
-    expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe("");
   });
 
   it("falls back to login when the stored token is invalid", () => {
