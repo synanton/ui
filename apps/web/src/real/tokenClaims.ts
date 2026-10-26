@@ -1,9 +1,10 @@
 export interface TokenClaims {
   subject: string | null;
   tenantId: string | null;
+  tokenType: string | null;
 }
 
-const EMPTY: TokenClaims = { subject: null, tenantId: null };
+const EMPTY: TokenClaims = { subject: null, tenantId: null, tokenType: null };
 
 /**
  * Reads the display/tenant claims from a JWT payload. The token signature is
@@ -23,7 +24,8 @@ export function tokenClaims(token: string | null): TokenClaims {
     const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
     return {
       subject: typeof payload.sub === "string" ? payload.sub : null,
-      tenantId: typeof payload.tenant_id === "string" ? payload.tenant_id : null
+      tenantId: typeof payload.tenant_id === "string" ? payload.tenant_id : null,
+      tokenType: typeof payload.token_type === "string" ? payload.token_type : null
     };
   } catch {
     return EMPTY;

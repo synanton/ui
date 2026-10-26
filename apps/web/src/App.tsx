@@ -45,7 +45,13 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
     if (typeof sessionStorage === "undefined") {
       return null;
     }
-    return sessionStorage.getItem(TOKEN_KEY);
+    const stored = sessionStorage.getItem(TOKEN_KEY);
+    // Force re-auth for tokens minted by the removed Vite dev-auth path.
+    if (real && stored && tokenClaims(stored).tokenType !== "tenant_access") {
+      sessionStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
+    return stored;
   });
   const [loginError, setLoginError] = React.useState<string | null>(null);
   const uploadSourceReady = React.useRef(false);
