@@ -7,7 +7,8 @@ import { LoginPage } from "./routes/LoginPage";
 function jwt(payload: Record<string, unknown>): string {
   const encode = (value: unknown) =>
     btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.`;
+  const claims = { token_type: "tenant_access", ...payload };
+  return `${encode({ alg: "none", typ: "JWT" })}.${encode(claims)}.`;
 }
 
 beforeEach(() => {
@@ -74,6 +75,13 @@ describe("web shell (A-pre)", () => {
   it("prefills only the username from configuration", () => {
     render(<LoginPage onLogin={async () => {}} initialUsername="alice" />);
     expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe("alice");
+  });
+
+  it("forces re-auth for a token from the removed Vite dev-auth path", () => {
+    sessionStorage.setItem("synanton.accessToken", jwt({ sub: "alice", tenant_id: "demo", exp: Math.floor(Date.now() / 1000) + 3600, token_type: null }));
+    render(<App initialPath="/search" real apiBase="" />);
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
+    expect(sessionStorage.getItem("synanton.accessToken")).toBeNull();
   });
 
   it("falls back to login when the stored token is invalid", () => {
