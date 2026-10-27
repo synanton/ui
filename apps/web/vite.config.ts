@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/v1/auth/tenant": { target: security, changeOrigin: true },
         "/v1/search": { target: synquest, changeOrigin: true },
+        "/v1/demo/search": { target: synquest, changeOrigin: true },
+        "/v1/demo/ontology": { target: synquest, changeOrigin: true },
+        "/v1/demo/graph": { target: synquest, changeOrigin: true },
         "/v1/knowledge": { target: synquest, changeOrigin: true },
         "/v1/ingestion-runs": { target: synflux, changeOrigin: true },
         "/v1/sources": { target: synflux, changeOrigin: true },

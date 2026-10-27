@@ -16,8 +16,8 @@
 .syn-button--sm { min-height: 2rem; padding: 0 var(--space-2); font-size: var(--font-size-sm); }
 .syn-button--md { min-height: 2.5rem; padding: 0 var(--space-4); font-size: var(--font-size-md); }
 .syn-button--lg { min-height: 3rem; padding: 0 var(--space-6); font-size: var(--font-size-lg); }
-.syn-button--primary { background: var(--color-accent); color: var(--color-accent-foreground); }
-.syn-button--primary:hover:not(:disabled) { filter: brightness(0.94); }
+.syn-button--primary { background: var(--color-background); border-color: var(--color-border); color: var(--color-primary); }
+.syn-button--primary:hover:not(:disabled) { background: var(--color-surface); }
 .syn-button--secondary { background: var(--color-surface); border-color: var(--color-border); color: var(--color-foreground); }
 .syn-button--ghost { background: transparent; color: var(--color-foreground); }
 .syn-button--danger { background: var(--color-danger); color: #ffffff; }
