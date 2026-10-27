@@ -19,6 +19,7 @@ import { login } from "./real/login";
 import { tokenClaims } from "./real/tokenClaims";
 import { IngestionPage, type RunRef } from "./routes/IngestionPage";
 import { LoginPage } from "./routes/LoginPage";
+import { OntologyPanel } from "./routes/OntologyPanel";
 import { SearchPage } from "./routes/SearchPage";
 
 const TOKEN_KEY = "synanton.accessToken";
@@ -37,7 +38,7 @@ function browserPath(fallback: string): string {
     return fallback;
   }
   const path = window.location.pathname;
-  return path === "/search" || path === "/ingestion" ? path : fallback;
+  return path === "/search" || path === "/ingestion" || path === "/ontology" ? path : fallback;
 }
 
 export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppProps) {
@@ -66,7 +67,8 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
   const path = real && requestedPath === "/" ? "/search" : requestedPath;
   const navItems = [
     { id: "ingestion", label: "Ingestion", href: "/ingestion" },
-    { id: "search", label: "Search", href: "/search" }
+    { id: "search", label: "Search", href: "/search" },
+    { id: "ontology", label: "Ontology", href: "/ontology" }
   ];
 
   const runtime = React.useMemo(() => {
@@ -228,7 +230,7 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
             productName="Synanton"
             navItems={navItems}
             activeHref={path}
-            capabilities={["ingestion", "search"]}
+            capabilities={["ingestion", "search", "ontology"]}
           >
             {path === "/search"
               ? (
@@ -237,7 +239,13 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
                   initialQuery={real ? "linear algebra and calculus" : undefined}
                   onUnauthorized={real ? reauthenticate : undefined}
                 />
-              )
+              ) : path === "/ontology"
+                ? (
+                  <OntologyPanel
+                    client={runtime.client}
+                    onUnauthorized={real ? reauthenticate : undefined}
+                  />
+                )
               : <IngestionPage client={runtime.client} upload={real ? uploadFile : undefined} />}
           </AppShell>
         </ErrorBoundary>

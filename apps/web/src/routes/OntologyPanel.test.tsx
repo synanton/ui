@@ -60,7 +60,7 @@ function responseFor(path: string) {
   let rows = allEntities();
   if (band === "graph_useful") rows = rows.filter((row) => row.df_band === "3-15");
   if (band === "pair") rows = rows.filter((row) => row.df_band === "pair");
-  if (entityClass) rows = rows.filter((row) => row.entity_class === entityClass);
+  if (entityClass && entityClass !== "all") rows = rows.filter((row) => row.entity_class === entityClass);
   return { data: { entities: rows, count: rows.length } };
 }
 
@@ -96,7 +96,7 @@ describe("OntologyPanel", () => {
 
   it("shows 3 + 72 + 198 = 273 in the header total", async () => {
     render(<OntologyPanel client={client()} />);
-    expect(await screen.findByTestId("ontology-total")).toHaveTextContent("273");
+    expect((await screen.findByTestId("ontology-total")).textContent).toBe("273");
   });
 
   it("df_band=graph_useful shows 31 rows", async () => {
@@ -160,6 +160,23 @@ describe("OntologyPanel", () => {
     expect(within(row).getByText("df 3")).toBeTruthy();
   });
 
+  it("shows loading state before data resolves", () => {
+    const request = vi.fn(() => new Promise(() => {}));
+    render(<OntologyPanel client={{ request } as unknown as ApiClient} />);
+    expect(screen.getByTestId("ontology-loading")).toBeTruthy();
+    expect(screen.queryByTestId("ontology-empty")).toBeNull();
+  });
+
+  it("preserves collapse state across filter changes", async () => {
+    render(<OntologyPanel client={client()} />);
+    const toggle = await screen.findByRole("button", { name: /soft_glossary/ });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.change(screen.getByLabelText("df_band"), { target: { value: "pair" } });
+    await waitFor(() => expect(screen.getAllByTestId("ontology-row")).toHaveLength(EXPECTED.pair_total));
+    expect(screen.getByRole("button", { name: /soft_glossary/ }).getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("retries once after a 401 and renders the panel", async () => {
     const unauthorized = new ApiClientError({
       code: "AUTHENTICATION_REQUIRED",
@@ -172,7 +189,7 @@ describe("OntologyPanel", () => {
       .mockResolvedValueOnce({ data: { entities: allEntities(), count: EXPECTED.total } });
     const onUnauthorized = vi.fn(async () => true);
     render(<OntologyPanel client={{ request } as unknown as ApiClient} onUnauthorized={onUnauthorized} />);
-    await waitFor(() => expect(screen.getByTestId("ontology-total")).toHaveTextContent("273"));
+    await waitFor(() => expect(screen.getByTestId("ontology-total").textContent).toBe("273"));
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 });
