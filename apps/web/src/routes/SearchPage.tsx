@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Button, Surface } from "@synanton/ui-primitives";
 import { ApiClientError, type ApiClient } from "@synanton/api-client";
+import { requestWithReauth } from "../real/requestWithReauth";
 
 interface Hit {
   object_id: string;
@@ -61,23 +62,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
     setError(null);
     setTransient(null);
     try {
-      let response;
-      try {
-        response = await requestSearch();
-      } catch (failure) {
-        if (failure instanceof ApiClientError
-            && failure.code === "AUTHENTICATION_REQUIRED"
-            && onUnauthorized) {
-          const refreshed = await onUnauthorized();
-          if (!refreshed) {
-            throw failure;
-          }
-          console.info("401 → minted fresh token → retry");
-          response = await requestSearch();
-        } else {
-          throw failure;
-        }
-      }
+      const response = await requestWithReauth(requestSearch, onUnauthorized);
       setHits(response.data.results);
       setQueryType(response.data.query_type ?? null);
       setOpenProvenanceId(null);
