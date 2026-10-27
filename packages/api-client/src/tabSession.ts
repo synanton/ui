@@ -127,6 +127,12 @@ export class TabSession implements SessionIdentityProvider {
     return this.token;
   }
 
+  /** Replace the bearer token after a silent re-auth; tenant/principal stay locked. */
+  replaceToken(token: string): void {
+    this.token = token;
+    this.options.store.set(token);
+  }
+
   signal(): AbortSignal {
     return this.abortController.signal;
   }

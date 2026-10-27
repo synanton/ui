@@ -175,6 +175,24 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
     });
   }
 
+  async function reauthenticate(): Promise<boolean> {
+    const username = claims.subject ?? devAuthConfig.user;
+    if (!username || !runtime) {
+      return false;
+    }
+    try {
+      const result = await login(apiBase, username, devAuthConfig.tenant);
+      runtime.session.replaceToken(result.token);
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(TOKEN_KEY, result.token);
+      }
+      setToken(result.token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleLogin(username: string) {
     setLoginError(null);
     try {
@@ -217,6 +235,7 @@ export function App({ initialPath, tenantId, real = false, apiBase = "" }: AppPr
                 <SearchPage
                   client={runtime.client}
                   initialQuery={real ? "linear algebra and calculus" : undefined}
+                  onUnauthorized={real ? reauthenticate : undefined}
                 />
               )
               : <IngestionPage client={runtime.client} upload={real ? uploadFile : undefined} />}
