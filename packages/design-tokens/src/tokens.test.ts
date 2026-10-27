@@ -30,6 +30,7 @@ const textPairs = [
   ["foreground", "surface"],
   ["muted", "surface"],
   ["accentForeground", "accent"],
+  ["primaryForeground", "primary"],
   ["danger", "background"]
 ] as const;
 
