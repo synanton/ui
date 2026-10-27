@@ -72,6 +72,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
           if (!refreshed) {
             throw failure;
           }
+          console.info("401 → minted fresh token → retry");
           response = await requestSearch();
         } else {
           throw failure;
