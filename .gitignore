@@ -24,3 +24,6 @@ lerna-debug.log*
 .temp
 .tmp
 /.idea
+
+# Vite production output
+apps/web/dist/
