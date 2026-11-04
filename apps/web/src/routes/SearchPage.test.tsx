@@ -29,10 +29,10 @@ describe("SearchPage error states", () => {
       data: {
         query_type: "mixed",
         results: [{
-          object_id: "ref-1:0",
+          chunk_id: "ref-1:0",
           title: "Software Project Management",
           snippet: "terrain",
-          provenance_ref: "/v1/knowledge/ref-1:0/provenance",
+          provenance: { provenance_ref: "/v1/knowledge/ref-1:0/provenance" },
           final_rank: 1,
           bm25_rank: 1,
           dense_rank: 2
@@ -60,10 +60,10 @@ describe("SearchPage error states", () => {
         data: {
           query_type: "exact",
           results: [{
-            object_id: "0110d461-0321-5085-874a-ec716a610909#0",
+            chunk_id: "0110d461-0321-5085-874a-ec716a610909#0",
             title: "Globex Manufacturing",
             snippet: "IATF 16949",
-            provenance_ref: "/v1/knowledge/0110d461-0321-5085-874a-ec716a610909:0/provenance",
+            provenance: { provenance_ref: "/v1/knowledge/0110d461-0321-5085-874a-ec716a610909:0/provenance" },
             final_rank: 1,
             final_score: 0.047619,
             bm25_rank: 1,
