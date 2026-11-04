@@ -153,6 +153,7 @@ Route decision:
 2. `/graph?entity=:entityId&depth=...` is an exploratory workspace URL. It may preserve root, bounded depth, safe filters, and selected node/edge, but is not the canonical entity reference and must not be used as the primary external reference.
 3. Entity detail exposes an explicit **Explore in graph** action. Graph node selection exposes **Open canonical entity** and navigates to `/entities/:entityId`.
 4. Browser back restores the graph workspace selection and then the originating search/ontology context.
+7. A relationship may be deep-linked from the canonical entity record with a URL fragment (`/entities/:entityId#relationship-:relationshipId`). The fragment is a navigation hint, not an authorization token or a separate canonical resource route: the entity page must resolve the relationship through the authorized platform contract, scroll to it when present, and retain the same 404/no-metadata-leak behavior for unknown or unauthorized references.
 5. Both routes apply the same server-side entity authorization; graph additionally authorizes every edge and evidence reference. Unknown and unauthorized entity IDs return the same externally observable 404 response shape.
 6. Opening `/graph` without a focus entity shows an entity search/picker; it never loads a default or tenant-wide graph.
 
@@ -397,8 +398,7 @@ Visual rules:
 
 Graph is the instance-level map of relationships between concrete knowledge entities. It answers:
 
-- What is this entity connected to?
-- Through which relationship?
+- What is this entity connected to?- Through which relationship?
 - How was the relationship established?
 - Which sources support it?
 - What is the shortest relevant path between two entities?
@@ -760,8 +760,11 @@ Treat Search, Ontology, Graph, Entity, and Evidence as separate resource surface
 | CSRF/session misuse | Any mutation, if present | Cross-origin mutation attempt | Existing CSRF/SameSite controls; explicitly inventory whether this UI has mutations |
 | Clickjacking | Whole application | Attempt iframe embedding | CSP `frame-ancestors` and/or `X-Frame-Options` per deployment policy |
 | DoS/enumeration via expansion | Graph expansion | Deep/wide requests against a high-degree entity | Server depth/count/rate limits; bounded client rendering; actionable partial state |
+| SSRF through evidence opening | Evidence “Open source” action | Attempt to make the platform fetch an attacker-controlled remote URL | The action opens platform-backed evidence detail only; never fetch an arbitrary client-supplied URL. If a future feature proxies remote sources, require a strict destination allow-list, redirect/IP-range validation, and platform-mediated fetch controls |
 
 Add a negative-authorization test for every route/resource family. A tenant-switch browser test must verify that cached data, selected entity/edge, inspector contents, and provenance references from the previous tenant are cleared before the next tenant's data is rendered. Unknown and unauthorized entity IDs must be indistinguishable to the caller (404), and the same rule applies to nested relationship/evidence references.
+
+The Evidence **Open source** action navigates to platform-backed evidence/document detail using a platform-returned reference; it does not ask the server to fetch a client-supplied remote URL. If remote fetching is introduced later, treat SSRF as a new security requirement and require destination allow-listing, redirect and resolved-IP validation, and platform-mediated fetch controls.
 
 Before rollout, include automated authorization tests for each resource family, browser tests for tenant/session transitions, dependency and CSP checks under the existing application security policy, and manual review of URL/referrer and telemetry leakage. Unresolved security assumptions are release blockers, not follow-up polish.
 
@@ -797,8 +800,7 @@ apps/web/src/
   app/                  # router, shell, route boundaries
   features/
     search/
-      components/
-      hooks/
+      components/      hooks/
       routes/
       model/
     ontology/
@@ -889,7 +891,11 @@ These are **initial budgets to validate against the existing synapt API and the 
 | Ontology | Class detail/property panel | p95 ≤ 400 ms |
 | Ontology | Server-supplied instance-count enrichment | Lazy; p95 ≤ 1 s; never blocks tree render |
 
+For each workload and test environment, calculate percentiles over at least 1,000 measured requests after separating materially different workload classes; report p50/p95/p99 per class rather than pooling unlike workloads. Record sample count, warm/cold-cache condition, concurrency, payload-size band, browser/device, and environment with each result. Do not claim a p99 budget is met from fewer than 1,000 observations.
+
 Measurement points must be recorded separately: API round-trip, payload transfer/parse, first content paint, renderer/layout, and interactive state. Graph budgets assume a representative developer laptop and must be validated on the project's agreed reference browser/device; record the actual test environment. The 1,000/5,000 cap is a defensive UI ceiling, not a recommended initial payload. The normal focused view remains at or below 200/600.
+
+The graph list/table alternative uses the **light workspace surface and light-shell contrast tokens**, including its toolbar, rows, selection, focus, and inspector; dark-canvas tokens apply only to the graph visualization surface.
 
 For graph payloads over the hard cap, do not silently discard edges or imply completeness. Retain the bounded result metadata, switch to the paginated/virtualized table alternative, and prompt the user to refine the focus, filters, or depth. The API should enforce limits too; client limits are defense in depth.
 
@@ -978,7 +984,7 @@ This work follows the current project direction: stabilize the first end-to-end 
 | Visual consistency | Light shell/dark canvas transition specified; all semantic token pairs pass WCAG 2.2 AA on each surface |
 | Search | Query/filter state retained; provenance is truthful; partial retrieval explicit |
 | Ontology | Stable class/property identity; tree and graph agree; instances are paginated |
-| Graph | Bounded traversal; stable node/edge identity; edge evidence inspectable |
+| Graph | Bounded traversal; stable node/edge identity; edge evidence inspectable; switching between graph and list preserves the selected entity/edge and inspector state |
 | Cross-navigation | Search ↔ entity ↔ ontology ↔ graph ↔ evidence round trip |
 | Security | Threat matrix passes cross-tenant, IDOR, enumeration, XSS, cache, URL/referrer, and expansion-abuse tests |
 | Provenance | No fabricated source, page, relationship, or evidence |
