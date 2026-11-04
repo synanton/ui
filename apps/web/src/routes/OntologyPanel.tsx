@@ -141,7 +141,7 @@ export function OntologyPanel({ client, onUnauthorized }: {
               {rows.map((entity) => (
                 <li key={entity.entity_id} data-testid="ontology-row">
                   <span>{entity.canonical_form}</span>
-                  <span>df {entity.df}</span>
+                  <span className="syn-df-badge">df {entity.df}</span>
                 </li>
               ))}
             </ul>
