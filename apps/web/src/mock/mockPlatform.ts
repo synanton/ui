@@ -17,12 +17,26 @@ export interface MockPlatform {
  * identity; tenant B intentionally receives no results.
  */
 interface SearchFixture {
-  tenantId: string;
+   tenantId: string;
   hit: {
-    object_id: string;
+    chunk_id: string;
     title: string;
     snippet: string;
-    provenance_ref: string;
+    provenance: {
+      source_uri?: string;
+      source_version_ids?: string[];
+      provenance_ref?: string;
+      page_start?: number | null;
+      page_end?: number | null;
+      section_path?: string[] | null;
+    };
+    final_rank: number;
+    final_score: number;
+    bm25_rank: number | null;
+    bm25_contribution: number;
+    dense_rank: number | null;
+    dense_contribution: number;
+    legs_present: string[];
   };
 }
 
@@ -32,10 +46,24 @@ const searchFixtures: SearchFixture[] = [
   {
     tenantId: MOCK_TENANT_ID,
     hit: {
-      object_id: "ref-1:0",
+      chunk_id: "ref-1:0",
       title: "Software Project Management",
       snippet: "When the map and the terrain disagree, trust the terrain.",
-      provenance_ref: "/v1/knowledge/ref-1:0/provenance"
+      provenance: {
+        source_uri: "file:///books/sample.pdf",
+        source_version_ids: ["v1"],
+        provenance_ref: "/v1/knowledge/ref-1:0/provenance",
+        page_start: 2,
+        page_end: 2,
+        section_path: ["Appendix A", "Data Sources"]
+      },
+      final_rank: 1,
+      final_score: 0.095238,
+      bm25_rank: 1,
+      bm25_contribution: 0.047619,
+      dense_rank: 1,
+      dense_contribution: 0.047619,
+      legs_present: ["bm25", "dense"]
     }
   }
 ];
@@ -65,16 +93,19 @@ export function createMockPlatform(session: TabSession): MockPlatform {
     },
     requestId: "req-run-detail"
   }));
-  transport.on("POST", "/v1/search", (_request, verified) => ({
+  const search = (_request: unknown, verified: { tenantId: string }) => ({
     status: 200,
     data: {
+      query_type: "mixed",
       // Load-bearing filter: removing it makes the tenant-B test fail.
       results: searchFixtures
         .filter((fixture) => fixture.tenantId === verified.tenantId)
         .map((fixture) => fixture.hit)
     },
     requestId: "req-search"
-  }));
+  });
+  transport.on("POST", "/v1/search", search);
+  transport.on("POST", "/v1/demo/search", search);
   transport.on("GET", "/v1/knowledge/ref-1:0/provenance", () => ({
     status: 200,
     data: {

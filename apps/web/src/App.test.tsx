@@ -47,7 +47,8 @@ describe("web shell (A-pre)", () => {
     await waitFor(() => expect(screen.getByText("file:///books/sample.pdf")).toBeTruthy());
     expect(screen.getByText("abc")).toBeTruthy();
     expect(screen.getByText("p1")).toBeTruthy();
-    expect(screen.getByText(/Page ranges are not exposed/)).toBeTruthy();
+    expect(screen.getByText(/Pages 2/)).toBeTruthy();
+    expect(screen.getByText(/Data Sources/)).toBeTruthy();
 
     // The panel expands under the row, not at the bottom of the result list.
     const row = title.closest("li");

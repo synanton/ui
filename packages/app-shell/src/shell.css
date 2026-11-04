@@ -10,7 +10,7 @@
 .syn-app-shell__nav-link:hover, .syn-app-shell__nav-link.is-active { background: var(--color-surface); color: var(--color-foreground); }
 .syn-app-shell__content { min-width: 0; padding: var(--space-6); }
 .syn-loading-state { align-items: center; color: var(--color-muted); display: flex; gap: var(--space-2); }
-.syn-loading-state__indicator { animation: syn-spin 900ms linear infinite; border: 2px solid var(--color-border); border-right-color: var(--color-accent); border-radius: 50%; height: 1rem; width: 1rem; }
+.syn-loading-state__indicator { animation: syn-spin 900ms linear infinite; border: 2px solid var(--color-border); border-right-color: var(--color-foreground); border-radius: 50%; height: 1rem; width: 1rem; }
 .syn-error-boundary { border: 1px solid var(--color-danger); border-radius: var(--radius-lg); padding: var(--space-4); }
 @keyframes syn-spin { to { transform: rotate(360deg); } }
 @media (max-width: 48rem) {

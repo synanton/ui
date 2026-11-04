@@ -1,15 +1,31 @@
 import * as React from "react";
 import { Button, Surface } from "@synanton/ui-primitives";
 import { ApiClientError, type ApiClient } from "@synanton/api-client";
+import { requestWithReauth } from "../real/requestWithReauth";
 
 interface Hit {
-  object_id: string;
+  chunk_id: string;
   title: string;
   snippet: string;
-  provenance_ref: string;
+  provenance: {
+    source_uri?: string;
+    source_version_ids?: string[];
+    provenance_ref?: string;
+    page_start?: number | null;
+    page_end?: number | null;
+    section_path?: string[] | null;
+  };
+  final_rank?: number;
+  final_score?: number;
+  bm25_rank?: number | null;
+  bm25_contribution?: number;
+  dense_rank?: number | null;
+  dense_contribution?: number;
+  legs_present?: string[];
 }
 
 interface SearchResponse {
+  query_type?: string;
   results: Hit[];
 }
 
@@ -24,9 +40,14 @@ interface Provenance {
   processing_run_id: string;
 }
 
-export function SearchPage({ client, initialQuery = "When the map and the terrain disagree" }: { client: ApiClient; initialQuery?: string }) {
+export function SearchPage({ client, initialQuery = "When the map and the terrain disagree", onUnauthorized }: {
+  client: ApiClient;
+  initialQuery?: string;
+  onUnauthorized?: () => Promise<boolean>;
+}) {
   const [query, setQuery] = React.useState(initialQuery);
   const [hits, setHits] = React.useState<Hit[] | null>(null);
+  const [queryType, setQueryType] = React.useState<string | null>(null);
   const [openProvenanceId, setOpenProvenanceId] = React.useState<string | null>(null);
   const [provenance, setProvenance] = React.useState<Provenance | null>(null);
   const [provenanceError, setProvenanceError] = React.useState<string | null>(null);
@@ -35,17 +56,22 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
   const [error, setError] = React.useState<string | null>(null);
   const [transient, setTransient] = React.useState<string | null>(null);
 
+  async function requestSearch() {
+    return client.request<SearchResponse>({
+      method: "POST",
+      path: "/v1/demo/search",
+      body: { query }
+    });
+  }
+
   async function search(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setTransient(null);
     try {
-      const response = await client.request<SearchResponse>({
-        method: "POST",
-        path: "/v1/search",
-        body: { query }
-      });
+      const response = await requestWithReauth(requestSearch, onUnauthorized);
       setHits(response.data.results);
+      setQueryType(response.data.query_type ?? null);
       setOpenProvenanceId(null);
       setProvenance(null);
       setProvenanceError(null);
@@ -59,7 +85,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
   }
 
   async function openProvenance(hit: Hit) {
-    if (openProvenanceId === hit.object_id) {
+    if (openProvenanceId === hit.chunk_id) {
       provenanceRequest.current += 1;
       setOpenProvenanceId(null);
       setProvenance(null);
@@ -68,15 +94,23 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
       return;
     }
 
+    const ref = hit.provenance?.provenance_ref;
+    if (!ref) {
+      setOpenProvenanceId(hit.chunk_id);
+      setProvenance(null);
+      setProvenanceError("Provenance reference unavailable");
+      return;
+    }
+
     const request = ++provenanceRequest.current;
-    setOpenProvenanceId(hit.object_id);
+    setOpenProvenanceId(hit.chunk_id);
     setProvenance(null);
     setProvenanceError(null);
     setProvenanceLoading(true);
     try {
       const response = await client.request<Provenance>({
         method: "GET",
-        path: hit.provenance_ref
+        path: ref
       });
       if (request !== provenanceRequest.current) {
         return;
@@ -100,6 +134,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
       <form onSubmit={search}>
         <label htmlFor="query">Query</label>
         <input id="query" value={query} onChange={(event) => setQuery(event.target.value)} />
+        {queryType ? <span className="syn-query-type" aria-label="Query type">{queryType}</span> : null}
         <Button type="submit">Search</Button>
       </form>
       {transient ? <p role="status">{transient}</p> : null}
@@ -110,11 +145,18 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
           : (
             <ul>
               {hits.map((hit) => {
-                const open = openProvenanceId === hit.object_id;
+                const open = openProvenanceId === hit.chunk_id;
                 return (
-                  <li key={hit.object_id}>
+                  <li key={hit.chunk_id}>
                     <h2>{hit.title}</h2>
                     <p>{hit.snippet}</p>
+                    {hit.final_rank !== undefined ? (
+                      <p className="syn-attribution" aria-label="Retrieval attribution">
+                        BM25 {hit.bm25_rank === null || hit.bm25_rank === undefined ? "—" : `#${hit.bm25_rank}`}
+                        {" · "}Dense {hit.dense_rank === null || hit.dense_rank === undefined ? "—" : `#${hit.dense_rank}`}
+                        {" · "}RRF #{hit.final_rank}
+                      </p>
+                    ) : null}
                     <Button
                       aria-expanded={open}
                       onClick={() => openProvenance(hit)}
@@ -137,7 +179,16 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
                             <dt>processing run</dt><dd>{provenance.processing_run_id}</dd>
                           </dl>
                         ) : null}
-                        <p>Page ranges are not exposed by the public `/v1` contract yet (#338).</p>
+                        {hit.provenance?.page_start != null ? (
+                          <p className="syn-page-range">
+                            Pages {hit.provenance.page_start}
+                            {hit.provenance.page_end != null && hit.provenance.page_end !== hit.provenance.page_start
+                              ? `–${hit.provenance.page_end}` : ""}
+                            {hit.provenance.section_path?.length ? ` · ${hit.provenance.section_path.join(" > ")}` : ""}
+                          </p>
+                        ) : hit.provenance?.section_path?.length ? (
+                          <p className="syn-page-range">Section: {hit.provenance.section_path.join(" > ")}</p>
+                        ) : null}
                       </section>
                     ) : null}
                   </li>
