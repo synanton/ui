@@ -82,4 +82,22 @@ describe("SearchPage error states", () => {
     await waitFor(() => expect(screen.getByLabelText("Query type").textContent).toBe("exact"));
     expect(screen.getByLabelText("Retrieval attribution").textContent).toBe("BM25 #1 · Dense — · RRF #1");
   });
+
+  it("shows the index-updating banner on a 503 instead of a red error", async () => {
+    const unavailable = new ApiClientError({
+      code: "DEPENDENCY_UNAVAILABLE",
+      message: "HTTP 503",
+      retryable: true,
+      requestId: "req-503"
+    });
+    const client = {
+      request: vi.fn().mockRejectedValue(unavailable)
+    } as unknown as ApiClient;
+
+    render(<SearchPage client={client} />);
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(() => expect(screen.getByText(/index is updating/i)).toBeTruthy());
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

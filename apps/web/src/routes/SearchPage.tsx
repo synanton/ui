@@ -55,6 +55,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
   const provenanceRequest = React.useRef(0);
   const [error, setError] = React.useState<string | null>(null);
   const [transient, setTransient] = React.useState<string | null>(null);
+  const [indexing, setIndexing] = React.useState(false);
 
   async function requestSearch() {
     return client.request<SearchResponse>({
@@ -68,6 +69,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
     event.preventDefault();
     setError(null);
     setTransient(null);
+    setIndexing(false);
     try {
       const response = await requestWithReauth(requestSearch, onUnauthorized);
       setHits(response.data.results);
@@ -78,6 +80,10 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
     } catch (failure) {
       if (failure instanceof ApiClientError && failure.code === "REQUEST_ABORTED") {
         setTransient("Tenant changed; the in-flight request was cancelled.");
+        return;
+      }
+      if (failure instanceof ApiClientError && failure.code === "DEPENDENCY_UNAVAILABLE") {
+        setIndexing(true);
         return;
       }
       setError(failure instanceof Error ? failure.message : "Search failed");
@@ -142,6 +148,11 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
         (Dense —). Newly uploaded documents use BM25 + Dense + RRF.
       </p>
       {transient ? <p role="status">{transient}</p> : null}
+      {indexing ? (
+        <p role="status" className="syn-index-updating">
+          Search index is updating for recent uploads; results will be available in a few seconds.
+        </p>
+      ) : null}
       {error ? <p role="alert">{error}</p> : null}
       {hits
         ? hits.length === 0
