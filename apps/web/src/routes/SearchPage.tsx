@@ -137,6 +137,10 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
         {queryType ? <span className="syn-query-type" aria-label="Query type">{queryType}</span> : null}
         <Button type="submit">Search</Button>
       </form>
+      <p role="note" className="syn-corpus-note">
+        Pre-existing documents ingested before semantic embedding was enabled are lexical-only
+        (Dense —). Newly uploaded documents use BM25 + Dense + RRF.
+      </p>
       {transient ? <p role="status">{transient}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       {hits
