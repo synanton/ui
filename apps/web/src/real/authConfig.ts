@@ -15,5 +15,5 @@ const env = import.meta.env as Record<string, string | undefined>;
  */
 export const devAuthConfig: DevAuthConfig = {
   user: read(env.VITE_DEMO_AUTH_USER),
-  tenant: read(env.VITE_DEMO_AUTH_TENANT)
+  tenant: read(env.VITE_DEMO_AUTH_TENANT) || "demo"
 };
