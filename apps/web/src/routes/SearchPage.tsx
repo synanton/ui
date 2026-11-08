@@ -2,6 +2,7 @@ import * as React from "react";
 import { Button, Surface } from "@synanton/ui-primitives";
 import { ApiClientError, type ApiClient } from "@synanton/api-client";
 import { requestWithReauth } from "../real/requestWithReauth";
+import { NeighborGraph, type NeighborGraphData } from "../components/NeighborGraph/NeighborGraph";
 
 interface Hit {
   chunk_id: string;
@@ -56,6 +57,12 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
   const [error, setError] = React.useState<string | null>(null);
   const [transient, setTransient] = React.useState<string | null>(null);
   const [indexing, setIndexing] = React.useState(false);
+  const [graphOwnerId, setGraphOwnerId] = React.useState<string | null>(null);
+  const [graphRootId, setGraphRootId] = React.useState<string | null>(null);
+  const [graph, setGraph] = React.useState<NeighborGraphData | null>(null);
+  const [graphError, setGraphError] = React.useState<string | null>(null);
+  const [graphLoading, setGraphLoading] = React.useState(false);
+  const graphRequest = React.useRef(0);
 
   async function requestSearch() {
     return client.request<SearchResponse>({
@@ -77,6 +84,11 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
       setOpenProvenanceId(null);
       setProvenance(null);
       setProvenanceError(null);
+      setGraphOwnerId(null);
+      setGraphRootId(null);
+      setGraph(null);
+      setGraphError(null);
+      setGraphLoading(false);
     } catch (failure) {
       if (failure instanceof ApiClientError && failure.code === "REQUEST_ABORTED") {
         setTransient("Tenant changed; the in-flight request was cancelled.");
@@ -87,6 +99,51 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
         return;
       }
       setError(failure instanceof Error ? failure.message : "Search failed");
+    }
+  }
+
+  async function toggleGraph(hit: Hit) {
+    if (graphOwnerId === hit.chunk_id) {
+      graphRequest.current += 1;
+      setGraphOwnerId(null);
+      setGraphRootId(null);
+      setGraph(null);
+      setGraphError(null);
+      setGraphLoading(false);
+      return;
+    }
+    setGraphOwnerId(hit.chunk_id);
+    await fetchGraph(hit.chunk_id);
+  }
+
+  async function fetchGraph(chunkId: string) {
+    const request = ++graphRequest.current;
+    setGraphRootId(chunkId);
+    setGraph(null);
+    setGraphError(null);
+    setGraphLoading(true);
+    try {
+      const response = await client.request<NeighborGraphData>({
+        method: "GET",
+        path: `/v1/demo/graph/neighbors/${encodeURIComponent(chunkId)}`
+      });
+      if (request !== graphRequest.current) {
+        return;
+      }
+      setGraph(response.data);
+    } catch (failure) {
+      if (request !== graphRequest.current) {
+        return;
+      }
+      setGraphError(
+        failure instanceof ApiClientError && failure.code === "RESOURCE_NOT_FOUND"
+          ? "No graph data for this chunk (the demo graph covers a fixed corpus)."
+          : failure instanceof Error ? failure.message : "Graph failed"
+      );
+    } finally {
+      if (request === graphRequest.current) {
+        setGraphLoading(false);
+      }
     }
   }
 
@@ -161,6 +218,7 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
             <ul>
               {hits.map((hit) => {
                 const open = openProvenanceId === hit.chunk_id;
+                const graphOpen = graphOwnerId === hit.chunk_id;
                 return (
                   <li key={hit.chunk_id}>
                     <h2>{hit.title}</h2>
@@ -177,6 +235,9 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
                       onClick={() => openProvenance(hit)}
                     >
                       {open ? "Hide provenance" : "Provenance"}
+                    </Button>
+                    <Button aria-expanded={graphOpen} onClick={() => toggleGraph(hit)}>
+                      {graphOpen ? "Hide graph" : "Graph"}
                     </Button>
                     {open ? (
                       <section aria-label={`Provenance for ${hit.title}`}>
@@ -204,6 +265,17 @@ export function SearchPage({ client, initialQuery = "When the map and the terrai
                         ) : hit.provenance?.section_path?.length ? (
                           <p className="syn-page-range">Section: {hit.provenance.section_path.join(" > ")}</p>
                         ) : null}
+                      </section>
+                    ) : null}
+                    {graphOpen ? (
+                      <section aria-label={`Graph for ${hit.title}`}>
+                        <h3>Neighbor graph</h3>
+                        <p className="syn-corpus-note">
+                          Root chunk: {graphRootId}
+                        </p>
+                        {graphLoading ? <p role="status">Loading graph…</p> : null}
+                        {graphError ? <p role="alert">{graphError}</p> : null}
+                        {graph ? <NeighborGraph data={graph} onSelectChunk={fetchGraph} /> : null}
                       </section>
                     ) : null}
                   </li>
