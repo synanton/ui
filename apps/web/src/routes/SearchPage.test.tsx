@@ -100,4 +100,46 @@ describe("SearchPage error states", () => {
     await waitFor(() => expect(screen.getByText(/index is updating/i)).toBeTruthy());
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("opens a bounded neighbor graph for a result", async () => {
+    const hit = {
+      chunk_id: "chunk-a#0",
+      title: "Globex Manufacturing",
+      snippet: "IATF 16949",
+      provenance: { provenance_ref: "/v1/knowledge/chunk-a:0/provenance" },
+      final_rank: 1,
+      bm25_rank: 1,
+      dense_rank: 1
+    };
+    const graph = {
+      chunk_id: "chunk-a#0",
+      neighbor_count: 1,
+      entities: [{ canonical_form: "IATF 16949", type: "identifier", entity_kind: "hard", df: 5 }],
+      neighbor_chunks: ["chunk-b#0"],
+      neighbors: [{
+        chunk_id: "chunk-b#0",
+        via: [{ canonical_form: "IATF 16949", type: "identifier", entity_kind: "hard", df: 5 }]
+      }],
+      by_kind: { hard: 1 }
+    };
+    const client = {
+      request: vi.fn(async (request: { path: string }) => {
+        if (request.path.startsWith("/v1/demo/graph/neighbors/")) {
+          return { data: graph };
+        }
+        return { data: { query_type: "mixed", results: [hit] } };
+      })
+    } as unknown as ApiClient;
+
+    render(<SearchPage client={client} />);
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() => expect(screen.getByText("Globex Manufacturing")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Graph" }));
+    await waitFor(() => expect(screen.getByText(/Showing 1 of 1 neighboring chunks/)).toBeTruthy());
+    expect(client.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      path: "/v1/demo/graph/neighbors/chunk-a%230"
+    }));
+  });
 });
