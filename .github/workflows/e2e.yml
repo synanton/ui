@@ -1,0 +1,117 @@
+name: E2E (vertical slice)
+
+# P0 cold-path regression for synanton/platform#537.
+#
+# The job boots the isolated local-real-demo Compose profile, serves the UI with
+# Vite (the compose stack has no UI service), and runs the Playwright spec.
+#
+# GPU/TEI limitation: GitHub-hosted runners have no GPU, so the demo compose
+# disables pipeline embedding (state CHUNKED) and the spec runs with
+# E2E_REQUIRE_DENSE=false (BM25 + RRF + provenance). The Dense assertion is
+# mandatory when TEI is available (run locally with E2E_REQUIRE_DENSE unset).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/e2e.yml"
+  push:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vertical-slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout UI
+        uses: actions/checkout@v4
+
+      # If the sibling repos are private, add a CROSS_REPO_TOKEN secret with
+      # read access; otherwise the default token is scoped to this repo only.
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          repository: synanton/platform
+          path: platform
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+
+      - name: Checkout extraction gateway
+        uses: actions/checkout@v4
+        with:
+          repository: synanton/content_extractor
+          path: content_extractor
+          token: ${{ secrets.CROSS_REPO_TOKEN || github.token }}
+
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install UI dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chrome for Playwright
+        run: pnpm --filter @synanton/web exec playwright install --with-deps chrome
+
+      - name: Boot the isolated local-real-demo stack
+        env:
+          SYNANTON_JWT_SECRET: local-real-demo-secret-at-least-32-bytes
+          CONTENT_EXTRACTOR_ROOT: ${{ github.workspace }}/content_extractor
+        run: ./platform/scripts/run-local-real-demo.sh up
+
+      - name: Serve the UI against the compose stack
+        env:
+          VITE_DEMO_AUTH_TENANT: local-real-demo
+          VITE_SECURITY_URL: http://127.0.0.1:18081
+          VITE_SYNQUEST_URL: http://127.0.0.1:18083
+          VITE_SYNFLUX_URL: http://127.0.0.1:18090
+        run: |
+          nohup pnpm --filter @synanton/web dev --host 127.0.0.1 --port 5173 \
+            > /tmp/vite.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/vite.log
+          exit 1
+
+      - name: Run the vertical-slice E2E
+        env:
+          E2E_BASE_URL: http://127.0.0.1:5173
+          E2E_USERNAME: demo-user
+          E2E_REQUIRE_DENSE: "false"
+        run: pnpm --filter @synanton/web exec playwright test
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          if-no-files-found: ignore
+
+      - name: Tear down the stack
+        if: always()
+        run: ./platform/scripts/run-local-real-demo.sh down || true
