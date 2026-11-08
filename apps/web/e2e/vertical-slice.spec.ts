@@ -17,6 +17,7 @@ const baseURL = process.env.E2E_BASE_URL;
 const username = process.env.E2E_USERNAME;
 const fixturePdf = process.env.E2E_FIXTURE_PDF;
 const semanticQuery = process.env.E2E_SEMANTIC_QUERY;
+const appUrl = (path: string) => new URL(path, baseURL!).toString();
 
 test.describe("vertical slice: upload → dense search → provenance", () => {
   test.skip(
@@ -28,7 +29,7 @@ test.describe("vertical slice: upload → dense search → provenance", () => {
     await access(fixturePdf!);
 
     // Real mode obtains a tenant-bound token through POST /v1/auth/tenant.
-    await page.goto(new URL("/ingestion", baseURL).toString());
+    await page.goto(appUrl("/ingestion"));
     await page.getByRole("heading", { name: "Sign in" }).waitFor();
     await page.getByLabel("Username").fill(username!);
     await page.getByRole("button", { name: "Sign in" }).click();
@@ -43,7 +44,7 @@ test.describe("vertical slice: upload → dense search → provenance", () => {
 
     // The first search can legitimately return the projection-rebuild 503.
     // Retry through the UI until the asynchronous projection is queryable.
-    await page.goto(new URL("/search", baseURL).toString());
+    await page.goto(appUrl("/search"));
     const query = page.getByLabel("Query");
     await query.fill(semanticQuery!);
 
