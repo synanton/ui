@@ -22,7 +22,7 @@ const appUrl = (pathname: string) => new URL(pathname, baseURL!).toString();
 test.describe("vertical slice: upload -> dense search -> provenance", () => {
   test.skip(!baseURL, "Set E2E_BASE_URL to the deployed UI origin");
 
-  test("uploads a unique document and retrieves dense evidence", async ({ page }) => {
+  test("uploads a unique document and retrieves dense evidence", async ({ page, request }) => {
     const token = randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
     const fileName = `e2e-${token}.txt`;
     const uniqueFact =
@@ -48,40 +48,52 @@ test.describe("vertical slice: upload -> dense search -> provenance", () => {
       const row = page.locator("li", { hasText: fileName });
       await expect(row.getByText("Uploaded", { exact: true })).toBeVisible({ timeout: 180_000 });
 
-      // The first search can legitimately return the projection-rebuild 503.
-      // Retry through the UI until the asynchronous projection is queryable.
-      await page.goto(appUrl("/search"));
-      await page.getByLabel("Query").fill(semanticQuery);
-      const searchButton = page.getByRole("button", { name: "Search" });
-      const indexingNotice = page.getByText(/Search index is updating/i);
-      // Wait for *this run's* document, not merely any result: the warm corpus
-      // already answers the query before the new upload's projection completes.
-      const uploadedResult = page.locator("#main-content li").filter({ hasText: token });
-      const uploadedAttribution = uploadedResult.getByLabel("Retrieval attribution");
-
-      // The dense leg reads canonical vectors directly, so it can answer before
-      // the Lucene projection catches up. Require BM25 as well: that is the
-      // signal that the outbox-driven projection (and the 503 barrier) completed.
+      // Deterministic barrier: synflux reports the latest source version's
+      // outbox acknowledgement, which the projection consumer writes only after
+      // the Lucene rebuild completes. Do not guess with a sleep.
+      const sessionToken = await page.evaluate(() => sessionStorage.getItem("synanton.accessToken"));
+      expect(sessionToken).toBeTruthy();
+      const statusUrl = appUrl("/v1/sources/ui-upload-browser/status");
       await expect.poll(async () => {
-        await searchButton.click();
-        if (await indexingNotice.isVisible().catch(() => false)) {
-          return "indexing";
+        const response = await request.get(statusUrl, {
+          headers: { Authorization: `Bearer ${sessionToken}` }
+        });
+        if (!response.ok()) {
+          return `http ${response.status()}`;
         }
-        const text = await uploadedAttribution.first().textContent().catch(() => null);
-        if (!text) {
-          return "pending";
-        }
-        return /BM25 #\d+/.test(text) && /Dense #\d+/.test(text) ? "ready" : "pending";
+        const status = await response.json();
+        return status.status === "COMPLETED" && status.indexed === true
+          ? "indexed"
+          : `${status.status}/${status.indexed}`;
       }, {
         timeout: 240_000,
         intervals: [2_000, 4_000, 6_000]
+      }).toBe("indexed");
+
+      await page.goto(appUrl("/search"));
+      await page.getByLabel("Query").fill(semanticQuery);
+      const searchButton = page.getByRole("button", { name: "Search" });
+      const uploadedResult = page.locator("#main-content li").filter({ hasText: token });
+      const uploadedAttribution = uploadedResult.getByLabel("Retrieval attribution");
+      await expect.poll(async () => {
+        await searchButton.click();
+        const text = await uploadedAttribution.first().textContent().catch(() => null);
+        return text && /BM25 #\d+/.test(text) ? "ready" : "pending";
+      }, {
+        timeout: 120_000,
+        intervals: [2_000, 4_000]
       }).toBe("ready");
 
       const firstResult = uploadedResult.first();
       await expect(firstResult).toContainText(token);
-      await expect(firstResult.getByLabel("Retrieval attribution")).toContainText(/BM25 #\d+/);
-      await expect(firstResult.getByLabel("Retrieval attribution")).toContainText(/Dense #\d+/);
-      await expect(firstResult.getByLabel("Retrieval attribution")).toContainText(/RRF #\d+/);
+      const attribution = firstResult.getByLabel("Retrieval attribution");
+      await expect(attribution).toContainText(/BM25 #\d+/);
+      // CI runs without a GPU/TEI, so the compose stack disables embedding and
+      // passes E2E_REQUIRE_DENSE=false. Locally/TEI-backed, Dense is mandatory.
+      if (process.env.E2E_REQUIRE_DENSE !== "false") {
+        await expect(attribution).toContainText(/Dense #\d+/);
+      }
+      await expect(attribution).toContainText(/RRF #\d+/);
 
       await firstResult.getByRole("button", { name: "Provenance" }).click();
       const provenancePanel = firstResult.getByRole("region", { name: /Provenance for/i });
