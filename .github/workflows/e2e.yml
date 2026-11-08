@@ -78,12 +78,16 @@ jobs:
         run: ./platform/scripts/run-local-real-demo.sh up
 
       - name: Serve the UI against the compose stack
-        env:
-          VITE_DEMO_AUTH_TENANT: local-real-demo
-          VITE_SECURITY_URL: http://127.0.0.1:18081
-          VITE_SYNQUEST_URL: http://127.0.0.1:18083
-          VITE_SYNFLUX_URL: http://127.0.0.1:18090
         run: |
+          # Vite dev defaults to the mock platform; force the real shell and
+          # point its proxy at the Compose host ports.
+          cat > apps/web/.env.local <<'EOF'
+          VITE_REAL_API=true
+          VITE_DEMO_AUTH_TENANT=local-real-demo
+          VITE_SECURITY_URL=http://127.0.0.1:18081
+          VITE_SYNQUEST_URL=http://127.0.0.1:18083
+          VITE_SYNFLUX_URL=http://127.0.0.1:18090
+          EOF
           nohup pnpm --filter @synanton/web dev --host 127.0.0.1 --port 5173 \
             > /tmp/vite.log 2>&1 &
           for _ in $(seq 1 60); do
