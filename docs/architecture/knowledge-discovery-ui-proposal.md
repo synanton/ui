@@ -64,29 +64,30 @@ The first implementation target is the existing React/Vite web workbench in `app
 
 ### 3.1 Visual language
 
-Use the restrained, high-density developer-console aesthetic previously referenced from [OpenCode Console](https://opencode.ai/console/org_01M37DRG1WM4EMNMKQT63TYEXA/go), adapted for enterprise knowledge work:
+Use a restrained, high-density **light developer-console shell** as the default visual language, consistent with the OpenCode brief. The graph canvas is the deliberate exception: it may use a dark neutral surface inside the otherwise light workspace.
 
-- Neutral dark shell with a clear light/dark token system; do not make every workspace a dark graph canvas.
-- Compact typography and deliberate spacing; avoid oversized hero sections and decorative gradients.
-- Thin borders, subtle surface elevation, quiet separators, and restrained accent colors.
-- Strong hierarchy between navigation, workspace title, filters, content, and inspectors.
-- Consistent iconography and compact tooltips for graph controls.
-- Color is never the only signal for entity type, relationship type, confidence, or status.
-- Use accent color for selected/focused states, not as permanent decoration.
+- Shell, navigation, search results, ontology tree/tables, toolbars, and inspectors use light neutral surfaces.
+- The graph canvas alone may use a dark neutral background. Keep its toolbar, breadcrumbs, inspector, and surrounding panels in the light shell so the boundary is clear rather than switching the entire page theme.
+- Separate the canvas from panels with a persistent border/gutter and a labeled graph workspace header. Keep selected entity/edge details in the light inspector; do not place essential controls only on the dark canvas.
+- Use compact typography, deliberate spacing, thin borders, subtle elevation, quiet separators, and no oversized hero sections or decorative gradients.
+- Use consistent, recognizable icons. Give icon-only graph controls accessible names and tooltips.
+- Use motion only to communicate state transitions; respect reduced-motion preferences and avoid continuous layout animation.
+- Color is never the only signal for entity type, relationship type, confidence, selection, or status. Pair it with labels, shape, line style, and focus treatment.
 
-The graph canvas may use a darker neutral surface to improve node/edge contrast. Search results and ontology tables should prioritize readability and scanability.
+**Contrast and token rule:** OpenCode reference values are visual inspiration, not approved accessibility tokens. Do not use muted text `#A3A3A3` or accent `#FF6B3D` for essential text, icons, focus indicators, or selected-state boundaries on white. Define semantic tokens and verify actual foreground/background pairs against WCAG 2.2 AA: 4.5:1 for normal text and 3:1 for large text and meaningful non-text UI. A practical starting point is muted text near `#737373` and a darkened accent such as `#C2410C` on white, subject to measured contrast in the final palette. Decorative use does not waive contrast where the decoration conveys meaning.
 
-### 3.2 Reference products and patterns
+For the dark graph canvas, independently test node labels, edge labels, relationship lines, focus rings, selected nodes/edges, hover states, and disabled states. Do not assume a token that passes on white will pass on the canvas. Record tested color pairs in the design-system token documentation.
 
-Use these as interaction references, not as implementation dependencies:
+### 3.2 Reference-product decisions
 
-| Reference | Patterns to study | Synanton adaptation |
-|---|---|---|
-| [Neo4j Bloom](https://neo4j.com/product/bloom/) | Search-to-graph, expand neighbors, contextual node actions | Focused exploration from a search result or entity |
-| [Linkurious](https://linkurious.com/) | Investigation workspace, filters, node/edge inspector | Evidence-aware relationship investigation |
-| [WebVOWL](https://service.tib.eu/webvowl/) | Visual distinction between ontology classes and properties | Ontology visualization and semantic legend |
-| [WebProtégé](https://webprotege.stanford.edu/) | Class hierarchy, entity detail, properties, annotations | Structured ontology browser |
-| [Protégé](https://protege.stanford.edu/) | Ontology terminology and modeling conventions | Semantic detail terminology and property grouping |
+Use these products as pattern references, not implementation dependencies. Adopt the useful interaction pattern and deliberately avoid importing complexity that does not fit Synanton's scope.
+
+| Reference | Adopt | Adapt | Reject |
+|---|---|---|---|
+| [Neo4j Bloom](https://neo4j.com/product/bloom/) | Search-to-focused-subgraph flow, contextual node actions, progressive neighbor expansion | Start from Synanton search/entity identity and preserve evidence context during expansion | Bloom-style perspective/configuration complexity unless a validated user task requires it |
+| [Linkurious](https://linkurious.com/) | Right-side inspector, edge-first investigation, explicit relationship filtering | Make evidence available directly from the selected relationship inspector | Heavy investigation/case-management workflow or case semantics Synanton does not provide |
+| [WebVOWL](https://service.tib.eu/webvowl/) | Semantic legend and visual distinction between classes and properties/relations | Keep the visualization read-only and link selected classes to structured detail | Ontology-editing affordances |
+| [WebProtégé](https://webprotege.stanford.edu/) | Class hierarchy, property panels, annotations, structured class detail | Use a compact browse-and-inspect workflow within the shared workbench | Full ontology-authoring, collaboration, and change-management UI |
 
 Avoid copying a graph-first experience that assumes users already know the entity they want. Synanton should let users enter from search, ontology, a document, or an entity link.
 
@@ -136,16 +137,26 @@ Not every field is populated on every route. A route must not invent missing val
 
 Proposed route shape (final route conventions should follow the existing router):
 
-| Route | Purpose | URL state worth preserving |
-|---|---|---|
-| `/search?q=...` | Search results | Query, supported filters, sort, selected result |
-| `/ontology` | Ontology landing / class tree | Selected class, expanded tree path |
-| `/ontology/classes/:classId` | Class detail | Class identity, selected tab |
-| `/graph?entity=:entityId` | Graph exploration | Root entity, bounded depth, selected node/edge |
-| `/entities/:entityId` | Entity detail / shared entry point | Entity identity, source view |
-| `/documents/:documentId` | Document and evidence view | Source version and supported location |
+| Route | Purpose | Shareable | Authorization scope | Canonical |
+|---|---|---|---|---|
+| `/search?q=...` | Search results | Yes, only safe query/filter state | Every search request is authorized for the authenticated tenant/session | No; query view |
+| `/ontology` | Ontology landing / class tree | Yes | Ontology read permission for the authenticated tenant/session | No; workspace |
+| `/ontology/classes/:classId` | Class detail | Yes | Class and related metadata authorized server-side | Class resource |
+| `/entities/:entityId` | Canonical entity record: properties, classifications, relationship list, and evidence list | **Yes; preferred URL for tickets and external references** | Entity and each nested relationship/evidence resource authorized server-side | **Yes; only canonical entity URL** |
+| `/graph?entity=:entityId&depth=...` | Exploratory graph workspace rooted at the entity; filters and selected node/edge are view state | Yes, as a workspace deep link; not the canonical entity reference | Same entity authorization plus independent authorization for every returned edge and evidence reference | No; transient exploration |
+| `/documents/:documentId` | Document and evidence view | Yes, subject to safe location state | Document/version/location authorized server-side | Document resource |
 
 Only stable identifiers and non-sensitive view state belong in URLs. Do not put access tokens, tenant authority, private query diagnostics, or sensitive content in query parameters. Server authorization is required on every request.
+
+Route decision:
+1. `/entities/:entityId` is the only canonical entity URL. It is the stable record view intended for tickets, chat, and external references.
+2. `/graph?entity=:entityId&depth=...` is an exploratory workspace URL. It may preserve root, bounded depth, safe filters, and selected node/edge, but is not the canonical entity reference and must not be used as the primary external reference.
+3. Entity detail exposes an explicit **Explore in graph** action. Graph node selection exposes **Open canonical entity** and navigates to `/entities/:entityId`.
+4. Browser back restores the graph workspace selection and then the originating search/ontology context.
+7. A relationship may be deep-linked from the canonical entity record with a URL fragment (`/entities/:entityId#relationship-:relationshipId`). The fragment is a navigation hint, not an authorization token or a separate canonical resource route: the entity page must resolve the relationship through the authorized platform contract, scroll to it when present, and retain the same 404/no-metadata-leak behavior for unknown or unauthorized references.
+5. Both routes apply the same server-side entity authorization; graph additionally authorizes every edge and evidence reference. Unknown and unauthorized entity IDs return the same externally observable 404 response shape.
+6. Opening `/graph` without a focus entity shows an entity search/picker; it never loads a default or tenant-wide graph.
+
 
 ## 5. Shared workspace layout
 
@@ -387,8 +398,7 @@ Visual rules:
 
 Graph is the instance-level map of relationships between concrete knowledge entities. It answers:
 
-- What is this entity connected to?
-- Through which relationship?
+- What is this entity connected to?- Through which relationship?
 - How was the relationship established?
 - Which sources support it?
 - What is the shortest relevant path between two entities?
@@ -519,6 +529,19 @@ This is required for accessibility, large graphs, and users who prefer structure
 - The inspector exposes available provenance and temporal metadata.
 - Expansion is bounded, cancellable, and deduplicates results.
 - A list/table alternative represents the same selected subgraph.
+
+#### List/table as a first-class graph alternative
+
+The Graph / List switch is a view toggle over the same bounded result set, not a separate query or a fallback that loses selection.
+
+- Place the switch in the graph workspace toolbar and expose it through keyboard-accessible workspace controls.
+- Keep root entity, active filters, temporal context, loaded neighborhood, and selected entity/relationship synchronized when switching views.
+- Selecting a row highlights/selects the corresponding graph node or edge when switching back; selecting a graph object scrolls to and selects its row in list mode.
+- Provide clearly grouped Nodes and Relationships tables. Relationship rows include source, predicate, target, direction, and evidence availability when returned.
+- Use server pagination/cursor loading where supported. For already-loaded graph data, virtualize long tables; never fetch an unbounded tenant-wide relationship list to populate the alternative.
+- Display traversal limits, partial results, and “load more” state consistently in both views.
+- If graph rendering is unavailable or disabled, list mode remains a usable inspection surface with the same entity and edge inspectors.
+
 - Graph layout never changes the underlying knowledge state.
 
 ## 9. Shared entity and relationship inspector
@@ -556,6 +579,23 @@ Sections:
 - persisted/inferred/retrieval-time status if known.
 
 The inspector should not claim that an edge is a verified real-world fact solely because it is present in a graph response.
+
+#### Relationship inspector contract and evidence interaction
+
+A selected edge is a first-class selectable object, not merely a line decoration. When returned by the public API, show:
+
+1. **Identity:** stable relationship ID, copyable in technical details.
+2. **Endpoints:** subject/source and object/target labels, each linking to its canonical entity route.
+3. **Predicate:** human-readable relationship type and canonical predicate identifier where useful.
+4. **Direction:** explicit “subject —predicate→ object” presentation; never rely on arrow geometry alone.
+5. **Attributes:** returned qualifiers/properties with typed values; distinguish absent, null, and empty.
+6. **Confidence:** value, scale, and interpretation only when the API defines them; never invent a percentage or normalize an undocumented score.
+7. **Status/origin:** persisted, inferred, or retrieval-time only when explicitly represented by the contract.
+8. **Temporal context:** validity/observation timestamps and active as-of context when supplied.
+9. **Evidence:** source/chunk references, evidence status, and supported location metadata returned for the relationship.
+
+“Provenance one click away” means the selected edge inspector presents an **Evidence** section immediately, without requiring another navigation mode. Each evidence row exposes source title/identity, source version, excerpt or supported snippet, and an “Open source” action. If the API returns only an opaque evidence reference, show its availability/status and open the platform-backed evidence detail; do not manufacture a snippet or source location. Returning from evidence restores the same graph root, selected edge, and inspector state. Missing evidence is explicitly labeled “No evidence reference returned”.
+
 
 ## 10. Cross-workspace journeys
 
@@ -612,6 +652,22 @@ These journeys define the intended product behavior more clearly than isolated s
 - **Visual layout state:** graph coordinates and panel sizes are presentation state, not canonical platform data.
 
 Do not duplicate authoritative tenant context in feature-local storage. Tenant switching and cache isolation must follow the existing session/tenant decisions.
+
+#### State ownership boundaries and KnowledgeContext limits
+
+`KnowledgeContext` is a small navigation/context envelope, **not** a global application store or god object. It may carry only the serializable context needed to move between workspaces: safe current/return route, selected stable entity/class/evidence IDs, intentionally shared query/filter state, and a temporal-view reference when supported.
+
+It must not own API result collections, graph node/edge payloads, caches, request lifecycles, authorization decisions, graph coordinates, open-panel state, or feature-specific transient UI state.
+
+- Search owns query execution, result pages, ranking metadata, and search-local selection.
+- Ontology owns tree expansion, class/property detail, and paginated instance state.
+- Graph owns its bounded neighborhood, layout coordinates, selected node/edge, expansion requests, and graph-local filters.
+- Entity/evidence features own their detail payloads and provenance presentation.
+- Router owns shareable navigation state; TanStack Query (or the established equivalent) owns server state and cache lifecycle.
+- Shared navigation exposes typed intents and stable IDs, not mutable references to feature stores.
+
+Prefer a small typed context object and explicit navigation parameters. Add fields only when at least two real journeys need them. Feature modules remain independently testable and must not import another feature's internal store. Tenant/session context remains in the existing authentication boundary and is never copied into `KnowledgeContext`.
+
 
 ### 11.2 Navigation context
 
@@ -688,6 +744,31 @@ If the API does not expose a field, the UI must not derive it from internal stor
 - Do not present inferred/retrieval-time relationships as persisted facts.
 - Preserve temporal distinctions; do not silently fall back from a historical view to current data.
 
+### 13.1 Threat-oriented security verification
+
+Treat Search, Ontology, Graph, Entity, and Evidence as separate resource surfaces under one authorization boundary. The UI is not a security boundary; every API request and every returned reference must be authorized by the platform.
+
+| Threat | Surface | Test case | Expected control |
+|---|---|---|---|
+| Cross-tenant data leak | `/entities/:id`, `/graph?entity=`, evidence refs | Tenant A requests Tenant B entity using a guessed ID | 404 with identical response shape; no metadata leakage |
+| IDOR on provenance | Evidence-reference fetch | Enumerate evidence IDs across tenants | Server-side authorization on every evidence fetch; no client-only checks |
+| Enumeration via autocomplete | Search suggestions | Rapid sequential queries across ID ranges | Rate-limited, authorization-scoped suggestions; no existence oracle |
+| Token leakage via URL | Entity/graph routes | Inspect URL, history, referrer, copied links | No tokens or tenant authority in URLs; session state only |
+| XSS via document content | Evidence/chunk rendering | Render source content containing script/HTML payloads | Treat content as text; sanitize explicitly supported rich text; CSP; no unsafe HTML injection |
+| Graph injection | Node/edge labels and attributes | Return malicious markup in server-provided labels | Escape as text in canvas, tables, and inspectors |
+| Cache poisoning/leakage | Client query cache | Switch tenant/session while stale data is cached | Cache keys partitioned by auth context; hard invalidation on logout, expiry, and tenant switch |
+| CSRF/session misuse | Any mutation, if present | Cross-origin mutation attempt | Existing CSRF/SameSite controls; explicitly inventory whether this UI has mutations |
+| Clickjacking | Whole application | Attempt iframe embedding | CSP `frame-ancestors` and/or `X-Frame-Options` per deployment policy |
+| DoS/enumeration via expansion | Graph expansion | Deep/wide requests against a high-degree entity | Server depth/count/rate limits; bounded client rendering; actionable partial state |
+| SSRF through evidence opening | Evidence “Open source” action | Attempt to make the platform fetch an attacker-controlled remote URL | The action opens platform-backed evidence detail only; never fetch an arbitrary client-supplied URL. If a future feature proxies remote sources, require a strict destination allow-list, redirect/IP-range validation, and platform-mediated fetch controls |
+
+Add a negative-authorization test for every route/resource family. A tenant-switch browser test must verify that cached data, selected entity/edge, inspector contents, and provenance references from the previous tenant are cleared before the next tenant's data is rendered. Unknown and unauthorized entity IDs must be indistinguishable to the caller (404), and the same rule applies to nested relationship/evidence references.
+
+The Evidence **Open source** action navigates to platform-backed evidence/document detail using a platform-returned reference; it does not ask the server to fetch a client-supplied remote URL. If remote fetching is introduced later, treat SSRF as a new security requirement and require destination allow-listing, redirect and resolved-IP validation, and platform-mediated fetch controls.
+
+Before rollout, include automated authorization tests for each resource family, browser tests for tenant/session transitions, dependency and CSP checks under the existing application security policy, and manual review of URL/referrer and telemetry leakage. Unresolved security assumptions are release blockers, not follow-up polish.
+
+
 ## 14. Accessibility and responsive behavior
 
 ### Accessibility
@@ -719,8 +800,7 @@ apps/web/src/
   app/                  # router, shell, route boundaries
   features/
     search/
-      components/
-      hooks/
+      components/      hooks/
       routes/
       model/
     ontology/
@@ -791,6 +871,54 @@ Capture client-side operational signals without collecting sensitive content:
 
 Do not log access tokens, raw document content, or unrestricted query text.
 
+### 15.5 Initial performance budgets
+
+These are **initial budgets to validate against the existing synapt API and the web renderer**, not guarantees before measurement. The proposal commits to instrumenting them, establishing a baseline, and reporting deviations before tuning.
+
+| Area | Workload / measurement point | Initial budget |
+|---|---|---:|
+| Search | Submit → first result row rendered | p50 ≤ 400 ms; p95 ≤ 1.2 s; p99 ≤ 2.5 s |
+| Search | Server-backed filter application | p95 ≤ 800 ms |
+| Search | Autocomplete suggestion response/render | p95 ≤ 250 ms |
+| Search | First paint of 50 already-received rows | ≤ 100 ms; result list virtualized |
+| Graph | Focused subgraph, ≤ 200 nodes / ≤ 600 edges, payload available → interactive | p95 ≤ 1.5 s |
+| Graph | Progressive expansion adding ≤ 100 nodes, response available → visible | p95 ≤ 800 ms |
+| Graph | Layout switch without refetch | p95 ≤ 600 ms |
+| Graph | Hard client cap per focused view | 1,000 nodes / 5,000 edges; beyond this, switch to table and show “Refine to visualize” |
+| Graph | Selection → local inspector populated | ≤ 100 ms |
+| Graph | Provenance fetch after selection | p95 ≤ 600 ms |
+| Ontology | Initial class tree, ≤ 2,000 classes | p95 ≤ 1 s |
+| Ontology | Class detail/property panel | p95 ≤ 400 ms |
+| Ontology | Server-supplied instance-count enrichment | Lazy; p95 ≤ 1 s; never blocks tree render |
+
+For each workload and test environment, calculate percentiles over at least 1,000 measured requests after separating materially different workload classes; report p50/p95/p99 per class rather than pooling unlike workloads. Record sample count, warm/cold-cache condition, concurrency, payload-size band, browser/device, and environment with each result. Do not claim a p99 budget is met from fewer than 1,000 observations.
+
+Measurement points must be recorded separately: API round-trip, payload transfer/parse, first content paint, renderer/layout, and interactive state. Graph budgets assume a representative developer laptop and must be validated on the project's agreed reference browser/device; record the actual test environment. The 1,000/5,000 cap is a defensive UI ceiling, not a recommended initial payload. The normal focused view remains at or below 200/600.
+
+The graph list/table alternative uses the **light workspace surface and light-shell contrast tokens**, including its toolbar, rows, selection, focus, and inspector; dark-canvas tokens apply only to the graph visualization surface.
+
+For graph payloads over the hard cap, do not silently discard edges or imply completeness. Retain the bounded result metadata, switch to the paginated/virtualized table alternative, and prompt the user to refine the focus, filters, or depth. The API should enforce limits too; client limits are defense in depth.
+
+### 15.6 Product success metrics
+
+These metrics are hypotheses to validate, not contractual commitments. Instrument the leading indicators immediately; define lagging targets only after a stable baseline.
+
+**Leading indicators — instrument in the first release**
+- **Time to first evidence:** median time from query submit to first evidence panel open. Establish a four-week baseline, then set a reduction target.
+- **Cross-workspace transition rate:** percentage of sessions that visit at least two of Search, Ontology, and Graph.
+- **Evidence-open rate:** percentage of graph edge selections followed by a provenance view within 30 seconds.
+- **Partial-retrieval incidence:** percentage of search/graph requests marked partial, reviewed alongside abandonment and task completion.
+- **Query refinement rate:** average query refinements per successful evidence open; interpret with task success to avoid rewarding premature stopping.
+- **List-alternative adoption:** percentage of graph sessions that open the table alternative; use as a signal to tune graph defaults, not as a failure metric.
+
+**Lagging indicators — define after baseline**
+- Completion rate for the four end-to-end journeys in Section 10.
+- Return rate for users who complete a multi-workspace journey compared with single-workspace sessions.
+- Support/feedback volume tagged to discovery, normalized by active usage.
+
+Event names, required properties, sampling, retention, and dashboards belong in the implementation epic and telemetry schema, not this design proposal. Events should contain feature/action/status and coarse duration/count buckets only—never raw query text, document content, entity labels, access tokens, or unredacted identifiers. Metrics are reviewed as tenant-safe aggregates and must follow existing consent, retention, and access policy.
+
+
 ## 16. Delivery plan
 
 This work follows the current project direction: stabilize the first end-to-end vertical slice, then polish and expand the user experience. Do not let this proposal become a reason to widen the current implementation rush.
@@ -853,16 +981,16 @@ This work follows the current project direction: stabilize the first end-to-end 
 
 | Area | Acceptance gate |
 |---|---|
-| Visual consistency | Shared tokens, shell, typography, focus, selection, and panel behavior |
+| Visual consistency | Light shell/dark canvas transition specified; all semantic token pairs pass WCAG 2.2 AA on each surface |
 | Search | Query/filter state retained; provenance is truthful; partial retrieval explicit |
 | Ontology | Stable class/property identity; tree and graph agree; instances are paginated |
-| Graph | Bounded traversal; stable node/edge identity; edge evidence inspectable |
+| Graph | Bounded traversal; stable node/edge identity; edge evidence inspectable; switching between graph and list preserves the selected entity/edge and inspector state |
 | Cross-navigation | Search ↔ entity ↔ ontology ↔ graph ↔ evidence round trip |
-| Security | No client-authoritative tenant; server authorization for every resource |
+| Security | Threat matrix passes cross-tenant, IDOR, enumeration, XSS, cache, URL/referrer, and expansion-abuse tests |
 | Provenance | No fabricated source, page, relationship, or evidence |
 | Temporal | Historical context retained; no silent fallback |
 | Accessibility | Keyboard/list alternatives for all graph interactions |
-| Performance | Lazy loading, cancellation, bounded payloads, responsive interactions |
+| Performance | Search/ontology/graph budgets instrumented; graph cap and list fallback verified at target sizes |
 | Reliability | Loading/empty/partial/unavailable/error states covered by tests |
 
 ### Minimum end-to-end acceptance scenario
@@ -935,3 +1063,18 @@ The first polished release should favor a small number of real, explainable rela
 | Focus entity | The entity around which a bounded graph view is requested |
 | Partial retrieval | A search result where one or more retrieval capabilities did not contribute |
 | Derived view | A search or graph projection that must not be confused with canonical source state |
+
+## Appendix C — Competitive research and renderer decision
+
+The competitive benchmark and frontend architecture research is maintained separately in [Synanton Knowledge Workspace — Competitive UX and Frontend Architecture Research](../research/knowledge-workspace-competitive-benchmark.md).
+
+The research refines the implementation direction as follows:
+
+- Product direction: one modular Knowledge Workspace connecting Search, Entity, Graph, Ontology, and Evidence.
+- Graph UX: focused subgraphs, progressive expansion, explicit relationship inspection, and a synchronized list/table alternative.
+- Ontology UX: read-first class/property/instance browsing; authoring remains a separately gated future capability.
+- Frontend architecture: feature-owned state, typed domain contracts, a narrow navigation context, and a renderer-neutral graph adapter.
+- Renderer decision: **not yet selected**. Benchmark Cytoscape.js and AntV G6 using the same Synanton API-shaped fixture and existing performance budgets. Keep Sigma.js as a scale alternative. Reactodia and Zazuko Graph Explorer are semantic references but declare LGPL-2.1 and require license review before adoption.
+- Current repository fact: apps/web/package.json does not currently declare a graph-renderer dependency. Do not describe any candidate as already integrated into the active workbench.
+
+The renderer spike is a decision gate, not a commitment to replace an existing implementation. If the simpler candidate meets the functional, accessibility, and performance requirements, prefer it over a rewrite.
