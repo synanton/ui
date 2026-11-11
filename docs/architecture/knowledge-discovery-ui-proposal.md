@@ -1063,3 +1063,18 @@ The first polished release should favor a small number of real, explainable rela
 | Focus entity | The entity around which a bounded graph view is requested |
 | Partial retrieval | A search result where one or more retrieval capabilities did not contribute |
 | Derived view | A search or graph projection that must not be confused with canonical source state |
+
+## Appendix C — Competitive research and renderer decision
+
+The competitive benchmark and frontend architecture research is maintained separately in [Synanton Knowledge Workspace — Competitive UX and Frontend Architecture Research](../research/knowledge-workspace-competitive-benchmark.md).
+
+The research refines the implementation direction as follows:
+
+- Product direction: one modular Knowledge Workspace connecting Search, Entity, Graph, Ontology, and Evidence.
+- Graph UX: focused subgraphs, progressive expansion, explicit relationship inspection, and a synchronized list/table alternative.
+- Ontology UX: read-first class/property/instance browsing; authoring remains a separately gated future capability.
+- Frontend architecture: feature-owned state, typed domain contracts, a narrow navigation context, and a renderer-neutral graph adapter.
+- Renderer decision: **not yet selected**. Benchmark Cytoscape.js and AntV G6 using the same Synanton API-shaped fixture and existing performance budgets. Keep Sigma.js as a scale alternative. Reactodia and Zazuko Graph Explorer are semantic references but declare LGPL-2.1 and require license review before adoption.
+- Current repository fact: apps/web/package.json does not currently declare a graph-renderer dependency. Do not describe any candidate as already integrated into the active workbench.
+
+The renderer spike is a decision gate, not a commitment to replace an existing implementation. If the simpler candidate meets the functional, accessibility, and performance requirements, prefer it over a rewrite.
