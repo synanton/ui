@@ -1,8 +1,8 @@
 # Knowledge Discovery UI — Design Proposal
 
 - **Status:** Proposed design for review
-- **Date:** 2026-11-04
-- **Scope:** Web workbench search, ontology navigation, and knowledge-graph exploration
+- **Date:** 2026-11-23
+- **Scope:** Web workbench search, ontology browsing and governance, and knowledge-graph exploration
 - **Implementation home:** `apps/web` in this repository
 - **API boundary:** Synanton Platform API (`synapt`)
 - **Related:** [UI architecture proposal](../../doc/proposal.md), [UI inventory](./ui-inventory.md), [vertical-slice trace](./ingestion-search-vertical-slice-trace.md), [ADR 0002 — API contracts and browser ingress](../decisions/0002-api-contracts-and-browser-ingress.md), [ADR 0003 — Web framework](../decisions/0003-web-framework.md)
@@ -45,6 +45,8 @@ The first implementation target is the existing React/Vite web workbench in `app
 - Search results with source and chunk provenance.
 - Entity summaries and ontology classification.
 - Ontology class tree, class detail, properties, and instance entry points.
+- Human-governed ontology proposal review, editing, validation-status inspection, and publication history.
+- Authorized dynamic-discovery enable/disable controls and governance settings.
 - Focused graph exploration with one-hop and bounded multi-hop expansion where supported.
 - Relationship inspection and evidence navigation.
 - URL-addressable state for useful views and selected objects.
@@ -55,7 +57,7 @@ The first implementation target is the existing React/Vite web workbench in `app
 
 - A new graph database or ontology service.
 - Client-side ontology reasoning, graph inference, or retrieval ranking.
-- Ontology authoring, editing, or approval workflows. Those require separate product and API decisions.
+- A general-purpose OWL/ontology IDE or unrestricted editing of published ontology releases. This proposal includes a bounded, governed proposal-review and editing workflow; publication remains a platform-authorized operation.
 - A general-purpose graph analytics/BI canvas.
 - A full redesign of ingestion, administration, mobile, or the Ask experience.
 - Promising page-level document navigation until the public API exposes page/section coordinates. The current vertical-slice trace records this as an API gap (#338).
@@ -142,6 +144,9 @@ Proposed route shape (final route conventions should follow the existing router)
 | `/search?q=...` | Search results | Yes, only safe query/filter state | Every search request is authorized for the authenticated tenant/session | No; query view |
 | `/ontology` | Ontology landing / class tree | Yes | Ontology read permission for the authenticated tenant/session | No; workspace |
 | `/ontology/classes/:classId` | Class detail | Yes | Class and related metadata authorized server-side | Class resource |
+| `/ontology/proposals` | Proposal queue filtered by status/scope | Yes, subject to safe filters | Proposal list authorized server-side | No; workflow view |
+| `/ontology/proposals/:proposalId` | Proposal review, diff, evidence, validation, and decision history | Yes | Proposal and evidence independently authorized server-side | Proposal resource |
+| `/ontology/settings` | Effective dynamic-discovery policy and permitted controls | Yes for authorized administrators | Policy read/write authorized server-side | No; settings view |
 | `/entities/:entityId` | Canonical entity record: properties, classifications, relationship list, and evidence list | **Yes; preferred URL for tickets and external references** | Entity and each nested relationship/evidence resource authorized server-side | **Yes; only canonical entity URL** |
 | `/graph?entity=:entityId&depth=...` | Exploratory graph workspace rooted at the entity; filters and selected node/edge are view state | Yes, as a workspace deep link; not the canonical entity reference | Same entity authorization plus independent authorization for every returned edge and evidence reference | No; transient exploration |
 | `/documents/:documentId` | Document and evidence view | Yes, subject to safe location state | Document/version/location authorized server-side | Document resource |
@@ -391,6 +396,82 @@ Visual rules:
 - Instance lists are paginated and server-authorized.
 - Entity-to-class and class-to-instance navigation preserve the workbench context.
 - Ontology graph has a keyboard- and screen-reader-accessible tree/list alternative.
+
+### 7.7 Ontology governance and human review
+
+Ontology browsing remains available regardless of whether dynamic discovery is enabled. Dynamic discovery is a platform policy that controls whether models may submit new ontology proposals; it does not disable the active ontology, entity resolution, review of existing proposals, or authorized human-created proposals.
+
+The UI is a governance client, not the ontology authority. It must never write directly to ontology storage or mutate the active release. The platform owns policy resolution, authorization, validation, identity allocation, publication, audit, and active-version changes.
+
+**Governance settings**
+
+For users with the relevant administration permission, show:
+- Effective dynamic-discovery state (enabled/disabled) and the scope to which it applies.
+- Whether the value is inherited or overridden, and which scope owns the effective policy.
+- A clear explanation that disabling discovery stops new model-generated proposals but does not remove pending proposals or disable normal ontology use.
+- Human approval required and automatic publication disabled as policy-enforced states in the initial release; do not present these as user-toggleable shortcuts.
+- An explicit confirmation and audit context for enable/disable changes.
+
+Do not allow a client to choose or spoof the tenant/workspace scope. The server returns the effective policy and allowed mutation scope.
+
+**Proposal queue**
+
+Provide filters for status, ontology/domain, proposal source (model or human), age, and reviewer assignment where the API supports them. Each row should show:
+- Proposed change summary and operation (add, amend, deprecate, replace, merge/alias).
+- Target ontology and tenant/domain scope.
+- Current proposal revision and base ontology release.
+- Submitted time, submitter/model provenance, and reviewer assignment.
+- Validation state, unresolved warnings, and evidence availability.
+- Status such as Draft, Submitted, In review, Changes requested, Approved, Rejected, Stale, Withdrawn, or Published.
+
+Counts and labels must be server-returned and authorization-scoped. Do not infer approval from model confidence or a green validation indicator.
+
+**Proposal review workspace**
+
+Use the existing light developer-console shell and three-column workspace pattern:
+- Left: proposal metadata, change list, target ontology context, and review navigation.
+- Center: structured before/after diff for classes, properties, relations, hierarchy, and constraints.
+- Right: source evidence, model/run provenance, validation findings, semantic conflicts, and impact summary.
+
+The reviewer must be able to inspect the existing ontology context before deciding. Model confidence and rationale are explicitly labeled as advisory; SHACL/structural validation is shown separately. Evidence links open only platform-authorized source/evidence views.
+
+**Human editing and decisions**
+
+Users with ontology-edit permission may edit the proposed changes in a structured form. Editing creates a new proposal revision; it does not mutate a published release. Any edit or model regeneration invalidates approval of the prior revision and triggers validation again.
+
+Reviewer actions, when authorized by the platform contract:
+- Approve the exact revision.
+- Request changes with a rationale.
+- Reject with a rationale.
+- Defer.
+- Merge/alias a duplicate candidate into an existing concept where supported.
+- Withdraw a proposal where permitted.
+
+Approval and publication are separate states. The UI shows publication as complete only after the platform confirms a new immutable release and returns the publication record. A stale-base conflict must be shown as requiring rebase/review, never silently retried against a newer ontology version.
+
+**Governance interaction states**
+
+- Discovery disabled: show that model proposal generation is off; keep ontology browsing and authorized manual proposals available.
+- No proposals: distinguish an empty queue from unavailable proposal capability.
+- Evidence restricted: show that evidence exists but is not available to this reviewer; do not reveal protected source content or hidden metadata.
+- Validation failed: show blocking findings and distinguish them from warnings.
+- Changes requested: show reviewer rationale and the exact revision being edited.
+- Stale proposal: explain that the base ontology release changed and require rebase/revalidation.
+- Approved, not published: show approval separately from publication.
+- Publication pending/partial: show the platform-reported state; do not imply that downstream graph/search/vector recalculation is complete.
+- Unauthorized action: rely on server response and remove unavailable actions without leaking resource existence.
+
+**Ontology governance acceptance criteria**
+
+- Dynamic discovery can be enabled/disabled only by an authorized user and only for a server-authorized scope.
+- Disabling discovery does not disable ontology browsing or silently discard pending proposals.
+- Every displayed proposal/revision has a stable platform ID and base ontology release.
+- Model confidence is never presented as approval or validation.
+- Human edits create a new revision and invalidate prior approval.
+- Approval is bound to the exact revision; stale-base publication is rejected.
+- Evidence visibility follows the same authorization rules as document/evidence workspaces.
+- The UI distinguishes validation, approval, publication, and downstream recalculation states.
+- Published ontology versions are read-only in the UI; changes are made through a new proposal.
 
 ## 8. Graph workspace
 
@@ -676,6 +757,7 @@ Use typed navigation intents rather than feature modules reaching into each othe
 - `OpenSearch(query, filters, resultId?)`
 - `OpenEntity(entityId, returnTo?)`
 - `OpenOntologyClass(classId, returnTo?)`
+- `OpenOntologyProposal(proposalId, returnTo?)`
 - `OpenGraph(entityId, depth?, returnTo?)`
 - `OpenEvidence(evidenceRef, returnTo?)`
 
@@ -715,6 +797,15 @@ Before each feature is marked integrated, the platform/API owners must confirm t
 - Entity-to-class mapping.
 - Authorization and temporal behavior.
 - Explicit semantics for equivalent/disjoint/subclass relations if supported.
+- Effective governance policy, scope/inheritance metadata, and capability flags.
+- Proposal list/detail with stable IDs, status, immutable revision IDs, content digest, and base ontology release.
+- Evidence/provenance references and authorization behavior for proposal evidence.
+- Create/submit/edit-as-new-revision and reviewer decision operations.
+- Validation runs and structured blocking/warning findings tied to a specific revision.
+- Approval bound to an exact revision and expected base release.
+- Publication result, immutable release identity, audit history, and active-release status.
+- Explicit distinction between ontology publication and downstream recalculation status.
+- Permission/capability metadata for read, propose, edit, approve, publish, and administer-policy actions.
 
 ### Graph contract checklist
 
@@ -741,6 +832,9 @@ If the API does not expose a field, the UI must not derive it from internal stor
 - Avoid leaking hidden entity counts, names, or relationship metadata in empty/error messages.
 - Provenance is rendered from platform-returned references; the UI must not reconstruct source chains.
 - Classification and visibility labels are informational; server authorization remains decisive.
+- Proposal, review, edit, validation, policy, and publication actions are authorized server-side; client-side role checks only control affordances.
+- Reviewer evidence is authorized independently from proposal metadata; the UI must not expose source text or hidden counts to a reviewer lacking evidence access.
+- Audit history is read-only to ordinary reviewers and includes actor, action, revision, decision, and publication state as returned by the platform.
 - Do not present inferred/retrieval-time relationships as persisted facts.
 - Preserve temporal distinctions; do not silently fall back from a historical view to current data.
 
@@ -757,9 +851,13 @@ Treat Search, Ontology, Graph, Entity, and Evidence as separate resource surface
 | XSS via document content | Evidence/chunk rendering | Render source content containing script/HTML payloads | Treat content as text; sanitize explicitly supported rich text; CSP; no unsafe HTML injection |
 | Graph injection | Node/edge labels and attributes | Return malicious markup in server-provided labels | Escape as text in canvas, tables, and inspectors |
 | Cache poisoning/leakage | Client query cache | Switch tenant/session while stale data is cached | Cache keys partitioned by auth context; hard invalidation on logout, expiry, and tenant switch |
-| CSRF/session misuse | Any mutation, if present | Cross-origin mutation attempt | Existing CSRF/SameSite controls; explicitly inventory whether this UI has mutations |
+| CSRF/session misuse | Governance and other mutations | Cross-origin policy/proposal/review/publication attempt | Existing CSRF/SameSite controls; server authorization and mutation protections |
 | Clickjacking | Whole application | Attempt iframe embedding | CSP `frame-ancestors` and/or `X-Frame-Options` per deployment policy |
 | DoS/enumeration via expansion | Graph expansion | Deep/wide requests against a high-degree entity | Server depth/count/rate limits; bounded client rendering; actionable partial state |
+| Proposal/evidence IDOR | Governance review | Reviewer guesses a proposal or evidence ID outside their scope | Server authorization on proposal and every evidence reference; indistinguishable not-found behavior |
+| Unauthorized ontology mutation | Review/publish actions | User without approval/publish permission submits a mutation | Server-enforced capability checks; UI affordances are not security controls |
+| Stale approval / lost update | Proposal editing and publication | Proposal edited after approval or base release changes before publish | Immutable revisions, approval bound to revision digest/base release, compare-and-set publication |
+| Cross-scope ontology mutation | Tenant/domain governance | Tenant-local proposal targets a shared ontology | Server-enforced ontology ownership and explicit shared-scope promotion permission |
 | SSRF through evidence opening | Evidence “Open source” action | Attempt to make the platform fetch an attacker-controlled remote URL | The action opens platform-backed evidence detail only; never fetch an arbitrary client-supplied URL. If a future feature proxies remote sources, require a strict destination allow-list, redirect/IP-range validation, and platform-mediated fetch controls |
 
 Add a negative-authorization test for every route/resource family. A tenant-switch browser test must verify that cached data, selected entity/edge, inspector contents, and provenance references from the previous tenant are cleared before the next tenant's data is rendered. Unknown and unauthorized entity IDs must be indistinguishable to the caller (404), and the same rule applies to nested relationship/evidence references.
@@ -808,6 +906,11 @@ apps/web/src/
       hooks/
       routes/
       model/
+      governance/
+        components/
+        hooks/
+        routes/
+        model/
     graph/
       components/
       hooks/
@@ -910,6 +1013,10 @@ These metrics are hypotheses to validate, not contractual commitments. Instrumen
 - **Partial-retrieval incidence:** percentage of search/graph requests marked partial, reviewed alongside abandonment and task completion.
 - **Query refinement rate:** average query refinements per successful evidence open; interpret with task success to avoid rewarding premature stopping.
 - **List-alternative adoption:** percentage of graph sessions that open the table alternative; use as a signal to tune graph defaults, not as a failure metric.
+- **Ontology review throughput:** proposals submitted, reviewed, approved, rejected, deferred, and returned for changes, segmented by proposal type and scope.
+- **Review latency:** time from submission to first review and final decision, segmented by complexity and reviewer queue.
+- **Edit/revision rate:** proportion of proposals materially changed by humans before approval; use to improve discovery quality, not to reward model acceptance.
+- **Publication integrity:** proportion of publications with complete evidence, validation, reviewer, base-release, and audit provenance; target is complete traceability.
 
 **Lagging indicators — define after baseline**
 - Completion rate for the four end-to-end journeys in Section 10.
@@ -967,7 +1074,18 @@ This work follows the current project direction: stabilize the first end-to-end 
 
 **Exit:** entity → neighbors → relationship evidence → source journey works repeatedly.
 
-### Stage 5 — Cross-workspace polish
+### Stage 5 — Ontology governance
+
+- Confirm proposal/revision/review/publication contracts and permission matrix with platform owners.
+- Implement dynamic-discovery settings with effective-scope and inherited/overridden state.
+- Implement proposal queue, evidence-aware review workspace, structured human editing, and decision history.
+- Bind edits and approvals to immutable proposal revisions and the base ontology release.
+- Display validation, approval, publication, and downstream recalculation as distinct states.
+- Add tenant/scope authorization, stale-base, revision-invalidation, and audit E2E tests.
+
+**Exit:** an authorized reviewer can inspect, edit, approve/reject, and track publication of a proposal without the UI directly mutating an active ontology.
+
+### Stage 6 — Cross-workspace polish
 
 - Validate all four journeys in Section 10.
 - Keyboard/accessibility and responsive review.
@@ -984,6 +1102,7 @@ This work follows the current project direction: stabilize the first end-to-end 
 | Visual consistency | Light shell/dark canvas transition specified; all semantic token pairs pass WCAG 2.2 AA on each surface |
 | Search | Query/filter state retained; provenance is truthful; partial retrieval explicit |
 | Ontology | Stable class/property identity; tree and graph agree; instances are paginated |
+| Ontology governance | Discovery toggle is permissioned; human edits create revisions; approval is revision/base-bound; publication is validated/audited; stale proposals fail closed |
 | Graph | Bounded traversal; stable node/edge identity; edge evidence inspectable; switching between graph and list preserves the selected entity/edge and inspector state |
 | Cross-navigation | Search ↔ entity ↔ ontology ↔ graph ↔ evidence round trip |
 | Security | Threat matrix passes cross-tenant, IDOR, enumeration, XSS, cache, URL/referrer, and expansion-abuse tests |
@@ -1021,6 +1140,11 @@ These items must be resolved before the corresponding implementation is treated 
 5. Which fields are available for source-level and chunk-level provenance, including page/section location?
 6. Which graph renderer best fits the real payload and accessibility requirements?
 7. Which user capabilities permit technical retrieval diagnostics and graph metadata?
+8. What is the final role matrix for propose, edit, approve, publish, policy administration, and shared-domain promotion?
+9. Which ontology proposal/revision/review/publication contracts and event fields will the public API expose?
+10. Which proposal changes require separation of duties or a second reviewer?
+11. How are proposal retention, evidence access, and deletion governed?
+12. How should the UI display publication completion separately from Resolutor recalculation and downstream projection activation?
 
 Track these as API/design decisions with platform owners. Do not solve them by coupling the UI to backend implementation details.
 
@@ -1041,6 +1165,11 @@ The first polished release should favor a small number of real, explainable rela
 - [ ] The three workspaces share the same shell and navigation model.
 - [ ] Search is the primary entry point; Graph never opens an unbounded whole-tenant graph.
 - [ ] Ontology class hierarchy remains usable without a graph canvas.
+- [ ] Dynamic-discovery settings do not disable normal ontology reads.
+- [ ] Proposal review shows evidence, ontology context, validation, impact, and revision diff.
+- [ ] Human edits create immutable revisions and invalidate earlier approvals.
+- [ ] Approve/reject/request-changes/defer actions are permissioned and audited.
+- [ ] Publication is shown only after platform confirmation and remains distinct from downstream recalculation.
 - [ ] Every entity and relationship has stable identity from the API.
 - [ ] Every displayed relationship has an explicit type and direction.
 - [ ] Evidence/provenance availability is visible and honest.
@@ -1056,6 +1185,10 @@ The first polished release should favor a small number of real, explainable rela
 |---|---|
 | Entity | A concrete instance/thing represented by the platform |
 | Ontology class | A semantic type used to classify entities |
+| Ontology proposal | A candidate ontology change isolated from published releases |
+| Proposal revision | An immutable snapshot of proposal content reviewed as a unit |
+| Ontology review | An authorized human decision and rationale tied to a proposal revision |
+| Ontology publication | A validated, audited creation of a new immutable ontology release |
 | Property | A typed attribute or semantic relation defined by the ontology |
 | Relationship / edge | A concrete connection between entity instances |
 | Evidence | A platform-returned reference to source material supporting a result or relationship |
@@ -1072,7 +1205,7 @@ The research refines the implementation direction as follows:
 
 - Product direction: one modular Knowledge Workspace connecting Search, Entity, Graph, Ontology, and Evidence.
 - Graph UX: focused subgraphs, progressive expansion, explicit relationship inspection, and a synchronized list/table alternative.
-- Ontology UX: read-first class/property/instance browsing; authoring remains a separately gated future capability.
+- Ontology UX: read-first class/property/instance browsing plus a separately permissioned governance workspace for model/human proposals, review, structured editing, and publication tracking. Published releases remain immutable and are never edited in place.
 - Frontend architecture: feature-owned state, typed domain contracts, a narrow navigation context, and a renderer-neutral graph adapter.
 - Renderer decision: **not yet selected**. Benchmark Cytoscape.js and AntV G6 using the same Synanton API-shaped fixture and existing performance budgets. Keep Sigma.js as a scale alternative. Reactodia and Zazuko Graph Explorer are semantic references but declare LGPL-2.1 and require license review before adoption.
 - Current repository fact: apps/web/package.json does not currently declare a graph-renderer dependency. Do not describe any candidate as already integrated into the active workbench.
